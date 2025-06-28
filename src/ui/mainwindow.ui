@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>500</width>
+    <height>411</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MuteActiveWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>3</number>
+      </property>
+      <widget class="QWidget" name="hotkeyTab">
+       <attribute name="title">
+        <string>Hotkey Settings</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="hotkeyLayout">
+        <item>
+         <widget class="QLabel" name="hotkeyLabel">
+          <property name="text">
+           <string>Hotkey (e.g., Ctrl+F1):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="hotkeyEdit">
+          <property name="placeholderText">
+           <string>e.g., Ctrl+F1, Alt+M, Shift+F2, F16</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="mainProcessOnlyCheck">
+          <property name="toolTip">
+           <string>When enabled, mutes the specific window process and related processes (like Chromium browser tabs or VLC instances).</string>
+          </property>
+          <property name="text">
+           <string>Mute directly by PID</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="applyButton">
+          <property name="text">
+           <string>Apply Settings</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="testButton">
+          <property name="text">
+           <string>Test Hotkey (Simulate)</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="hotkeySpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="devicesTab">
+       <attribute name="title">
+        <string>Device Management</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="devicesLayout">
+        <item>
+         <widget class="QGroupBox" name="allDevicesGroup">
+          <property name="title">
+           <string>All Available Audio Devices</string>
+          </property>
+          <layout class="QVBoxLayout" name="allDevicesLayout">
+           <item>
+            <widget class="QListWidget" name="allDevicesList">
+             <property name="toolTip">
+              <string>List of all available audio devices on your system.</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="refreshDevicesButton">
+             <property name="toolTip">
+              <string>Refresh the list of available audio devices.</string>
+             </property>
+             <property name="text">
+              <string>Refresh Devices</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="excludedDevicesGroup">
+          <property name="title">
+           <string>Excluded Devices (Will Not Be Muted)</string>
+          </property>
+          <layout class="QVBoxLayout" name="excludedDevicesLayout">
+           <item>
+            <widget class="QListWidget" name="excludedDevicesList">
+             <property name="toolTip">
+              <string>List of audio devices that will be excluded from muting operations.</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="excludedButtonsLayout">
+             <item>
+              <widget class="QPushButton" name="addDeviceButton">
+               <property name="toolTip">
+                <string>Add the selected device from the list above to exclusions.</string>
+               </property>
+               <property name="text">
+                <string>Add Selected to Exclusions</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="removeDeviceButton">
+               <property name="toolTip">
+                <string>Remove selected device from the exclusion list.</string>
+               </property>
+               <property name="text">
+                <string>Remove from Exclusions</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="devicesSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="processesTab">
+       <attribute name="title">
+        <string>Process Exclusions</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="processesLayout">
+        <item>
+         <widget class="QLabel" name="processesLabel">
+          <property name="toolTip">
+           <string>Enter process names (without .exe extension) that should be excluded from muting operations.</string>
+          </property>
+          <property name="text">
+           <string>Add process names to exclude from muting (one per line):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTextEdit" name="excludedProcessesEdit">
+          <property name="toolTip">
+           <string>List of process names to exclude from muting. One process name per line (e.g., chrome, firefox, discord).</string>
+          </property>
+          <property name="placeholderText">
+           <string>Enter process names here, one per line
+Examples:
+chrome
+firefox
+discord
+spotify</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="processesButtonsLayout">
+          <item>
+           <widget class="QPushButton" name="addCurrentProcessButton">
+            <property name="toolTip">
+             <string>Show a list of currently running processes to add to exclusions.</string>
+            </property>
+            <property name="text">
+             <string>Add from Running Processes</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="clearProcessesButton">
+            <property name="toolTip">
+             <string>Clear all excluded processes from the list.</string>
+            </property>
+            <property name="text">
+             <string>Clear All</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="saveProcessesButton">
+            <property name="toolTip">
+             <string>Save the current process exclusions to settings.</string>
+            </property>
+            <property name="text">
+             <string>Save Settings</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="processesInfoLabel">
+          <property name="styleSheet">
+           <string>color: gray; font-size: 10px;</string>
+          </property>
+          <property name="text">
+           <string>Note: Process names should be entered without the .exe extension. The application will automatically detect and exclude these processes when muting audio.</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="processesSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="settingsTab">
+       <attribute name="title">
+        <string>Settings</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="settingsLayout">
+        <item>
+         <widget class="QGroupBox" name="startupGroup">
+          <property name="title">
+           <string>Startup Behavior</string>
+          </property>
+          <layout class="QVBoxLayout" name="startupLayout">
+           <item>
+            <widget class="QCheckBox" name="startupCheck">
+             <property name="toolTip">
+              <string>Automatically start the application when Windows starts.</string>
+             </property>
+             <property name="text">
+              <string>Open app on startup</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="startupMinimizedCheck">
+             <property name="toolTip">
+              <string>Start the application minimized to the system tray.</string>
+             </property>
+             <property name="text">
+              <string>Open app minimized</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="trayGroup">
+          <property name="title">
+           <string>Tray Behavior</string>
+          </property>
+          <layout class="QVBoxLayout" name="trayLayout">
+           <item>
+            <widget class="QCheckBox" name="closeToTrayCheck">
+             <property name="toolTip">
+              <string>When closing the window, minimize to system tray instead of exiting the application.</string>
+             </property>
+             <property name="text">
+              <string>Close app to tray</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="appearanceGroup">
+          <property name="title">
+           <string>Appearance</string>
+          </property>
+          <layout class="QVBoxLayout" name="appearanceLayout">
+           <item>
+            <widget class="QCheckBox" name="darkModeCheck">
+             <property name="toolTip">
+              <string>Enable dark mode theme for the application interface.</string>
+             </property>
+             <property name="text">
+              <string>Dark Mode</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="filesGroup">
+          <property name="title">
+           <string>Files &amp; Folders</string>
+          </property>
+          <layout class="QVBoxLayout" name="filesLayout">
+           <item>
+            <widget class="QPushButton" name="openApplicationFolderButton">
+             <property name="toolTip">
+              <string>Open the folder containing application settings and logs in Windows Explorer.</string>
+             </property>
+             <property name="text">
+              <string>Open Application Folder</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="copyRegistryPathButton">
+             <property name="toolTip">
+              <string>Copy the registry path to clipboard for manual navigation in regedit.</string>
+             </property>
+             <property name="text">
+              <string>Copy Registry Path</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="settingsSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>500</width>
+     <height>21</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
+
