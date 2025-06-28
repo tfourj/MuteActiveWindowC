@@ -38,7 +38,7 @@
 #include <QClipboard>
 #include <QSizePolicy>
 
-static const QString VERSION = "1.0.0";
+static const QString VERSION = QString(APP_VERSION);
 static constexpr int HOTKEY_ID = 0xBEEF;
 
 MainWindow::MainWindow(QWidget *parent)
