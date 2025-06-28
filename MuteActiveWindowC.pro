@@ -33,7 +33,8 @@ RESOURCES += \
 
 # Auto-deploy after build (Release only)
 win32:CONFIG(release, release|debug) {
-    QMAKE_POST_LINK = $$(QTDIR)/bin/windeployqt.exe $$shell_quote($$OUT_PWD/release/$$shell_quote($$TARGET).exe) --no-compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw
+    QMAKE_POST_LINK = $$(QTDIR)/bin/windeployqt.exe $$shell_quote($$OUT_PWD/release/$$shell_quote($$TARGET).exe) --no-compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw && \
+    cmd /c "$$PWD\\clean_release.bat" "$$OUT_PWD\\release"
 }
 
 # Default rules for deployment.
