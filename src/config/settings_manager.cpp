@@ -77,6 +77,12 @@ void SettingsManager::migrateSettings() {
         Logger::log("Added missing setting 'darkMode' with default value: true");
     }
     
+    if (!config_.contains("showNotifications")) {
+        config_.setShowNotifications(true); // Default to notifications enabled
+        needsSave = true;
+        Logger::log("Added missing setting 'showNotifications' with default value: true");
+    }
+    
     if (needsSave) {
         config_.save();
         Logger::log("Settings migration completed - new defaults applied");
@@ -107,6 +113,10 @@ bool SettingsManager::getCloseToTray() const {
 
 bool SettingsManager::getDarkMode() const {
     return config_.getDarkMode();
+}
+
+bool SettingsManager::getShowNotifications() const {
+    return config_.getShowNotifications();
 }
 
 QStringList SettingsManager::getExcludedDevices() const {
@@ -145,6 +155,11 @@ void SettingsManager::setCloseToTray(bool enabled) {
 
 void SettingsManager::setDarkMode(bool enabled) {
     config_.setDarkMode(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setShowNotifications(bool enabled) {
+    config_.setShowNotifications(enabled);
     emit settingsChanged();
 }
 

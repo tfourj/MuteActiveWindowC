@@ -5,6 +5,93 @@ function Controller() {
     console.log("Controller initialized");
 }
 
+// Function to read installation path from registry
+function getPathFromRegistry() {
+    try {
+        console.log("=== getPathFromRegistry called ===");
+        
+        // Open registry key
+        var registryKey = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+        var keyExists = installer.execute("reg", ["query", registryKey, "/v", "MuteActiveWindow"]);
+        
+        if (keyExists) {
+            // Get the registry value data
+            var regOutput = installer.execute("reg", ["query", registryKey, "/v", "MuteActiveWindow"]);
+            if (regOutput) {
+                console.log("Registry output type: " + typeof regOutput);
+                console.log("Registry output: " + regOutput);
+                
+                // Convert to string if it's not already
+                var outputStr = "";
+                if (typeof regOutput === "string") {
+                    outputStr = regOutput;
+                } else if (regOutput && regOutput.toString) {
+                    outputStr = regOutput.toString();
+                } else {
+                    console.log("Cannot convert registry output to string");
+                    return "";
+                }
+                
+                // Parse the REG_SZ value from output which is in format:
+                // HKEY_CURRENT_USER\...\Run    MuteActiveWindow    REG_SZ    C:\Path\To\App\MuteActiveWindowC.exe
+                var lines = outputStr.split("\r\n");
+                console.log("Split into " + lines.length + " lines");
+                
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    console.log("Processing line " + i + ": " + line);
+                    if (line.indexOf("REG_SZ") !== -1) {
+                        // Extract path after REG_SZ
+                        var parts = line.split("REG_SZ");
+                        if (parts.length > 1) {
+                            var path = parts[1].trim();
+                            console.log("Found path: " + path);
+                            
+                            // Check if the executable exists
+                            var fileExists = installer.fileExists(path);
+                            console.log("File exists check: " + fileExists);
+                            
+                            if (fileExists) {
+                                // Remove executable name to get directory
+                                var lastBackslash = path.lastIndexOf("\\");
+                                if (lastBackslash !== -1) {
+                                    var dir = path.substring(0, lastBackslash);
+                                    console.log("Extracted directory: " + dir);
+                                    return dir;
+                                }
+                            } else {
+                                console.log("Executable not found at: " + path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        console.log("No existing installation found in registry or executable not found");
+        return "";
+        
+    } catch (e) {
+        console.log("Error in getPathFromRegistry: " + e.message);
+        return "";
+    }
+}
+
+// Function to set target directory
+function setTargetDirectory(dir) {
+    console.log("Setting target directory to: " + dir);
+    
+    // Set the target directory in the installer
+    installer.setValue("TargetDir", dir);
+    
+    // Update the UI if we can access it
+    var currentPage = gui.currentPageWidget();
+    if (currentPage && currentPage.TargetDirectoryLineEdit) {
+        currentPage.TargetDirectoryLineEdit.text = dir;
+        lastKnownTargetDir = dir;
+    }
+}
+
 // Simple function to check and fix target directory
 function checkAndFixTargetDirectory() {
     try {
@@ -86,14 +173,38 @@ function hookIntoUIWidgets() {
 
 Controller.prototype.TargetDirectoryPageCallback = function() {
     console.log("TargetDirectoryPageCallback");
-    checkAndFixTargetDirectory();
-    hookIntoUIWidgets();
     
     // Disable the target directory line edit
     var currentPage = gui.currentPageWidget();
     if (currentPage && currentPage.TargetDirectoryLineEdit) {
         currentPage.TargetDirectoryLineEdit.enabled = false;
     }
+    
+    // First try to get path from registry
+    var registryPath = getPathFromRegistry();
+    if (registryPath) {
+        console.log("Found previous installation at: " + registryPath);
+        
+        // Show prompt asking user if they want to use the found path
+        var message = "A previous installation of MuteActiveWindowC was found at:\n\n" + 
+                     registryPath + "\n\n" +
+                     "Would you like to install to this location?";
+        
+        var result = QMessageBox.question(null, "Previous Installation Found", message,
+                                        QMessageBox.Yes | QMessageBox.No);
+        
+        if (result === QMessageBox.Yes) {
+            console.log("User chose to use previous installation path");
+            setTargetDirectory(registryPath);
+            return;
+        } else {
+            console.log("User chose not to use previous installation path");
+        }
+    }
+    
+    // If no registry path found or user declined, check and fix target directory
+    checkAndFixTargetDirectory();
+    hookIntoUIWidgets();
 }
 
 // Initial check when script loads

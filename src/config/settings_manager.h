@@ -23,6 +23,7 @@ public:
     bool getStartupMinimized() const;
     bool getCloseToTray() const;
     bool getDarkMode() const;
+    bool getShowNotifications() const;
     QStringList getExcludedDevices() const;
     QStringList getExcludedProcesses() const;
     
@@ -33,6 +34,7 @@ public:
     void setStartupMinimized(bool enabled);
     void setCloseToTray(bool enabled);
     void setDarkMode(bool enabled);
+    void setShowNotifications(bool enabled);
     void setExcludedDevices(const QStringList& devices);
     void addExcludedDevice(const QString& device);
     void removeExcludedDevice(const QString& device);

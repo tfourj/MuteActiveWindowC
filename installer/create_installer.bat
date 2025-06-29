@@ -21,47 +21,47 @@ set VERSION=%~2
 :: 2) Auto-detect Qt IFW bin folder
 set IFW_BIN=
 for %%i in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.10\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.10\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.10\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.9\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.9\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.9\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.8\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.8\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.8\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.7\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.7\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.7\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.6\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.6\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.6\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.5\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.5\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.5\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.4\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.4\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.4\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.3\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.3\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.3\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.2\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.2\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.2\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.1\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.1\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.1\bin
         goto :found_ifw
     )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.0\bin\binarycreator.exe" (
+    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.0\bin\repogen.exe" (
         set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.0\bin
         goto :found_ifw
     )
@@ -75,6 +75,10 @@ if "!IFW_BIN!"=="" (
     set /p IFW_BIN="Enter Qt IFW bin folder manually: "
 )
 
+if not exist "!IFW_BIN!\repogen.exe" (
+    echo ERROR: repogen.exe not found in "!IFW_BIN!".
+    goto :EOF
+)
 if not exist "!IFW_BIN!\binarycreator.exe" (
     echo ERROR: binarycreator.exe not found in "!IFW_BIN!".
     goto :EOF
@@ -93,8 +97,9 @@ set INSTALLER_ROOT=%~dp0
 set PACKAGES_DIR=%INSTALLER_ROOT%packages
 set CONFIG_FILE=%INSTALLER_ROOT%config.xml
 set PACKAGE_XML=%INSTALLER_ROOT%package.xml
+set REPOSITORY_OUTPUT_DIR=%INSTALLER_ROOT%repository
 set RELEASE_OUTPUT_DIR=%INSTALLER_ROOT%release
-set OUTPUT_NAME=MuteActiveWindowC-%VERSION%-Setup.exe
+set ONLINE_INSTALLER_NAME=MuteActiveWindowC-Online-Installer.exe
 
 :: 4) Check if release files exist
 if not exist "%RELEASE_DIR%\MuteActiveWindowC.exe" (
@@ -154,30 +159,56 @@ powershell -Command "(Get-Content '%CONFIG_FILE%') -replace '@VERSION@', '%VERSI
 :: Create temporary package.xml
 powershell -Command "(Get-Content '%PACKAGE_XML%') -replace '@VERSION@', '%VERSION%' -replace '@RELEASE_DATE@', '%RELEASE_DATE%' | Set-Content '%META_DIR%\package.xml'"
 
-:: 9) Create release output directory
+:: 9) Create output directories
+if not exist "%REPOSITORY_OUTPUT_DIR%" mkdir "%REPOSITORY_OUTPUT_DIR%"
 if not exist "%RELEASE_OUTPUT_DIR%" mkdir "%RELEASE_OUTPUT_DIR%"
 
-:: 10) Run binarycreator with temporary config
+:: 10) Run repogen to create online repository
 echo.
-echo Running binarycreator...
+echo Running repogen to create online repository...
+"!IFW_BIN!\repogen.exe" ^
+  --packages "%PACKAGES_DIR%" ^
+  "%REPOSITORY_OUTPUT_DIR%"
+
+if exist "%REPOSITORY_OUTPUT_DIR%\Updates.xml" (
+    echo.
+    echo SUCCESS: Created online repository in "%REPOSITORY_OUTPUT_DIR%".
+    echo Repository files:
+    dir "%REPOSITORY_OUTPUT_DIR%"
+) else (
+    echo.
+    echo ERROR: Repository not created.
+    goto :cleanup
+)
+
+:: 11) Run binarycreator to create online installer
+echo.
+echo Running binarycreator to create online installer...
 "!IFW_BIN!\binarycreator.exe" ^
-  --offline-only ^
+  --online-only ^
   -t "!IFW_BIN!\installerbase.exe" ^
   -p "%PACKAGES_DIR%" ^
   -c "%TEMP_PACKAGE_DIR%\temp_config.xml" ^
-  "%RELEASE_OUTPUT_DIR%\%OUTPUT_NAME%"
+  "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%"
 
-if exist "%RELEASE_OUTPUT_DIR%\%OUTPUT_NAME%" (
+if exist "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%" (
     echo.
-    echo SUCCESS: Created "%RELEASE_OUTPUT_DIR%\%OUTPUT_NAME%".
-    echo Installer size: 
-    for %%A in ("%RELEASE_OUTPUT_DIR%\%OUTPUT_NAME%") do echo %%~zA bytes
+    echo SUCCESS: Created online installer "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%".
+    echo Online installer size: 
+    for %%A in ("%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%") do echo %%~zA bytes
+    echo.
+    echo To deploy online updates:
+    echo 1. Upload the contents of %REPOSITORY_OUTPUT_DIR% to your web server
+    echo 2. Update the repository URL in config.xml if needed
+    echo 3. Distribute the online installer: %RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%
+    echo 4. Users can now install and update automatically
 ) else (
     echo.
-    echo ERROR: installer not created.
+    echo ERROR: Online installer not created.
 )
 
-:: 11) Clean up temporary package structure
+:cleanup
+:: 12) Clean up temporary package structure
 echo.
 echo Cleaning up temporary files...
 if exist "%TEMP_PACKAGE_DIR%" rmdir /s /q "%TEMP_PACKAGE_DIR%"
