@@ -5,4 +5,5 @@
     <Version>@VERSION@</Version>
     <ReleaseDate>@RELEASE_DATE@</ReleaseDate>
     <Name>com.muteactivewindowc</Name>
+    <ForcedInstallation>true</ForcedInstallation>
 </Package> 

@@ -135,6 +135,14 @@ if exist "%RELEASE_DIR%\platforms" (
     xcopy "%RELEASE_DIR%\platforms" "%DATA_DIR%\platforms" /E /I /Y >nul
 )
 
+:: Copy control script to meta directory
+if exist "%INSTALLER_ROOT%controllerscript.qs" (
+    copy "%INSTALLER_ROOT%controllerscript.qs" "%TEMP_PACKAGE_DIR%\" >nul
+    echo Control script copied: controllerscript.qs
+) else (
+    echo WARNING: controllerscript.qs not found in installer directory
+)
+
 echo Essential files copied: MuteActiveWindowC.exe, Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, platforms folder
 
 :: 8) Create temporary config and package files with version and date

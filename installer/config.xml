@@ -9,6 +9,10 @@
     <WizardDefaultWidth>800</WizardDefaultWidth>
     <WizardStyle>Modern</WizardStyle>
     <StartMenuDir>MuteActiveWindowC</StartMenuDir>
-    <TargetDir>@HomeDir@/MuteActiveWindowC</TargetDir>
+    <TargetDir>@ApplicationsDir@/MuteActiveWindowC</TargetDir>
     <AdminTargetDir>@HomeDir@/MuteActiveWindowC</AdminTargetDir>
+    <AllowNonAsciiCharacters>true</AllowNonAsciiCharacters>
+    <AllowSpaceInPath>true</AllowSpaceInPath>
+    <ControlScript>controllerscript.qs</ControlScript>
+    <MaintenanceToolName>uninstall</MaintenanceToolName>
 </Installer> 
