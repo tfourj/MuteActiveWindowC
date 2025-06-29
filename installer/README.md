@@ -8,6 +8,7 @@ This directory contains the Qt Installer Framework (IFW) configuration for creat
 installer/
 ├── config.xml              
 ├── package.xml             
+├── controllerscript.qs     # Custom installer behavior script
 ├── create_installer.bat    # Installer creation script
 ├── packages/               # Temporary package structure (created during build)
 ├── release/                # Output directory for installers
@@ -59,6 +60,7 @@ The installer will be created as `MuteActiveWindowC-[version]-Setup.exe` in the 
 
 ## Customization
 
-- Edit `config/config.xml` to modify installer appearance and behavior
-- Edit `packages/com.muteactivewindowc/meta/package.xml` to change package information
+- Edit `config.xml` to modify installer appearance and behavior
+- Edit `package.xml` to change package information and component selection
+- Edit `controllerscript.qs` to customize installer behavior:
 - Edit `packages/com.muteactivewindowc/meta/installscript.qs` to add custom installation logic 

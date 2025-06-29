@@ -21,7 +21,7 @@ A C++ and Qt rewrite of the AutoHotkey-based [MuteActiveWindow](https://github.c
 
 ## Download
 
-Download the latest release from the [Releases](https://github.com/yourusername/MuteActiveWindow/releases) page.
+Download the latest release from the [Releases](https://github.com/tfourj/MuteActiveWindowC/releases) page.
 
 ## Quick Start
 
