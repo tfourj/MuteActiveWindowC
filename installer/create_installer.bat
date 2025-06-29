@@ -167,6 +167,8 @@ if not exist "%RELEASE_OUTPUT_DIR%" mkdir "%RELEASE_OUTPUT_DIR%"
 echo.
 echo Running repogen to create online repository...
 "!IFW_BIN!\repogen.exe" ^
+  --unite-metadata ^
+  --remove ^
   --packages "%PACKAGES_DIR%" ^
   "%REPOSITORY_OUTPUT_DIR%"
 
