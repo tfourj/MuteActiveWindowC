@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>MuteActiveWindowC</DisplayName>
+    <Description>Mute the active window's audio with a hotkey</Description>
+    <Version>@VERSION@</Version>
+    <ReleaseDate>@RELEASE_DATE@</ReleaseDate>
+    <Name>com.muteactivewindowc</Name>
+</Package> 
