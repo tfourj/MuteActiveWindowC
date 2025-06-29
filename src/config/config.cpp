@@ -106,6 +106,15 @@ void Config::setDarkMode(bool enabled) {
     Logger::log(QString("Dark mode setting saved: %1").arg(enabled ? "enabled" : "disabled"));
 }
 
+bool Config::getShowNotifications() const {
+    return settings_.value("showNotifications", true).toBool(); // Default to true (notifications on)
+}
+
+void Config::setShowNotifications(bool enabled) {
+    settings_.setValue("showNotifications", enabled);
+    Logger::log(QString("Show notifications setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
 void Config::save() {
     settings_.sync();
     Logger::log("All settings saved to registry");
@@ -118,6 +127,7 @@ void Config::save() {
     Logger::log(QString("  Startup minimized: %1").arg(getStartupMinimized() ? "true" : "false"));
     Logger::log(QString("  Close to tray: %1").arg(getCloseToTray() ? "true" : "false"));
     Logger::log(QString("  Dark mode: %1").arg(getDarkMode() ? "enabled" : "disabled"));
+    Logger::log(QString("  Show notifications: %1").arg(getShowNotifications() ? "enabled" : "disabled"));
     Logger::log(QString("  Excluded devices: %1").arg(getExcludedDevices().join(", ")));
     Logger::log(QString("  Excluded processes: %1").arg(getExcludedProcesses().join(", ")));
 }

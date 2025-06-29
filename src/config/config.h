@@ -41,6 +41,10 @@ public:
     bool getDarkMode() const;
     void setDarkMode(bool enabled);
     
+    // Notification settings
+    bool getShowNotifications() const;
+    void setShowNotifications(bool enabled);
+    
     // Check if setting exists
     bool contains(const QString& key) const;
     

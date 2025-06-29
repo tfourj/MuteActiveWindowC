@@ -6,4 +6,6 @@
     <ReleaseDate>@RELEASE_DATE@</ReleaseDate>
     <Name>com.muteactivewindowc</Name>
     <ForcedInstallation>true</ForcedInstallation>
+    <Essential>true</Essential>
+    <UpdateText>This will update MuteActiveWindowC to the latest version.</UpdateText>
 </Package> 

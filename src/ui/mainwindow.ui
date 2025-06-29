@@ -315,6 +315,19 @@ spotify</string>
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QCheckBox" name="showNotificationsCheck">
+             <property name="toolTip">
+              <string>Show system tray notifications when the application is minimized or actions are performed.</string>
+             </property>
+             <property name="text">
+              <string>Show notifications</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>

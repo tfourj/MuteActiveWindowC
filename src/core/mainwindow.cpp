@@ -71,6 +71,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startupCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->startupMinimizedCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->closeToTrayCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
+    connect(ui->showNotificationsCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->darkModeCheck, &QCheckBox::toggled, this, &MainWindow::onDarkModeChanged);
     
     // Setup system tray
@@ -166,6 +167,11 @@ void MainWindow::loadSettings() {
     ui->closeToTrayCheck->setChecked(closeToTray);
     Logger::log(QString("Loaded close to tray setting: %1").arg(closeToTray ? "enabled" : "disabled"));
     
+    // Load notification settings
+    bool showNotifications = settingsManager_.getShowNotifications();
+    ui->showNotificationsCheck->setChecked(showNotifications);
+    Logger::log(QString("Loaded show notifications setting: %1").arg(showNotifications ? "enabled" : "disabled"));
+    
     // Load dark mode setting
     bool darkMode = settingsManager_.getDarkMode();
     ui->darkModeCheck->setChecked(darkMode);
@@ -198,6 +204,9 @@ void MainWindow::saveSettings() {
     
     // Save tray behavior settings
     settingsManager_.setCloseToTray(ui->closeToTrayCheck->isChecked());
+    
+    // Save notification settings
+    settingsManager_.setShowNotifications(ui->showNotificationsCheck->isChecked());
     
     // Save dark mode setting
     settingsManager_.setDarkMode(ui->darkModeCheck->isChecked());
@@ -671,8 +680,10 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         }
         
         // Show a notification that the app is still running
-        trayIcon_->showMessage("MuteActiveWindow", "Application minimized to system tray", 
-                              QSystemTrayIcon::Information, 2000);
+        if (ui->showNotificationsCheck->isChecked()) {
+            trayIcon_->showMessage("MuteActiveWindow", "Application minimized to system tray", 
+                                  QSystemTrayIcon::Information, 2000);
+        }
         
         event->ignore();
         Logger::log("Window closed to tray");
