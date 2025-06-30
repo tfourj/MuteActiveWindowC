@@ -704,6 +704,17 @@ void MainWindow::closeEvent(QCloseEvent *event) {
                 event->ignore();
                 return;
             }
+            
+        } else {
+            // Normal close behavior - show confirmation dialog
+            QMessageBox::StandardButton reply = QMessageBox::question(this, "Quit Application", 
+                "Are you sure you want to quit MuteActiveWindow?", 
+                QMessageBox::Yes | QMessageBox::No);
+            
+            if (reply == QMessageBox::No) {
+                event->ignore();
+                return;
+            }
         }
         
         // Normal close behavior
@@ -775,14 +786,8 @@ void MainWindow::showMainWindow() {
 }
 
 void MainWindow::quitApplication() {
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Quit Application", 
-        "Are you sure you want to quit MuteActiveWindow?", 
-        QMessageBox::Yes | QMessageBox::No);
-    
-    if (reply == QMessageBox::Yes) {
-        Logger::log("Quitting application from tray");
-        QApplication::quit();
-    }
+    Logger::log("Quitting application from tray");
+    QApplication::quit();
 }
 
 void MainWindow::addCurrentProcess() {
