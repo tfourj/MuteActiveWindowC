@@ -379,6 +379,16 @@ spotify</string>
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QPushButton" name="checkForUpdatesButton">
+             <property name="toolTip">
+              <string>Check for application updates by launching the update checker.</string>
+             </property>
+             <property name="text">
+              <string>Check for Updates</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>

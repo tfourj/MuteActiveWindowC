@@ -12,6 +12,7 @@
 #include "audio_muter.h"
 #include "settings_manager.h"
 #include "theme_manager.h"
+#include "update_manager.h"
 #include "ui_mainwindow.h"
 #include "process_selection_dialog.h"
 #include <QDialog>
@@ -54,6 +55,7 @@ private slots:
     void clearProcesses();
     void saveProcesses();
     void onDarkModeChanged();
+    void checkForUpdates();
 
 private:
     void registerHotkey();
