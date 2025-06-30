@@ -19,7 +19,7 @@ void ThemeManager::setupDarkPalette() {
     darkPalette_.setColor(QPalette::WindowText, QColor(255, 255, 255));
     darkPalette_.setColor(QPalette::Base, QColor(25, 25, 25));
     darkPalette_.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
-    darkPalette_.setColor(QPalette::ToolTipBase, QColor(255, 255, 255));
+    darkPalette_.setColor(QPalette::ToolTipBase, QColor(25, 25, 25));
     darkPalette_.setColor(QPalette::ToolTipText, QColor(255, 255, 255));
     darkPalette_.setColor(QPalette::Text, QColor(255, 255, 255));
     darkPalette_.setColor(QPalette::Button, QColor(53, 53, 53));
