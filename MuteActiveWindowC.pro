@@ -14,7 +14,8 @@ SOURCES += \
     src/audio/audio_muter.cpp \
     src/config/settings_manager.cpp \
     src/utils/process_selection_dialog.cpp \
-    src/utils/theme_manager.cpp
+    src/utils/theme_manager.cpp \
+    src/utils/update_manager.cpp
 
 HEADERS += \
     src/core/mainwindow.h \
@@ -23,7 +24,8 @@ HEADERS += \
     src/audio/audio_muter.h \
     src/config/settings_manager.h \
     src/utils/process_selection_dialog.h \
-    src/utils/theme_manager.h
+    src/utils/theme_manager.h \
+    src/utils/update_manager.h
 
 FORMS += \
     src/ui/mainwindow.ui
@@ -43,7 +45,7 @@ win32 {
 
 # Application name and version
 TARGET = MuteActiveWindowC
-VERSION = 1.1.0
+VERSION = 1.2.0
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 
 # Auto-deploy after build (Release only)

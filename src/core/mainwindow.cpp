@@ -37,6 +37,7 @@
 #include <QTimer>
 #include <QClipboard>
 #include <QSizePolicy>
+#include "update_manager.h"
 
 static const QString VERSION = QString(APP_VERSION);
 static constexpr int HOTKEY_ID = 0xBEEF;
@@ -66,6 +67,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->addCurrentProcessButton, &QPushButton::clicked, this, &MainWindow::addCurrentProcess);
     connect(ui->clearProcessesButton, &QPushButton::clicked, this, &MainWindow::clearProcesses);
     connect(ui->saveProcessesButton, &QPushButton::clicked, this, &MainWindow::saveProcesses);
+    connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &MainWindow::checkForUpdates);
     
     // Connect settings checkboxes to auto-save
     connect(ui->startupCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
@@ -107,6 +109,10 @@ MainWindow::MainWindow(QWidget *parent)
     
     // Populate device list
     populateDeviceList();
+    
+    // Check for update checker availability and show/hide button accordingly
+    bool updateCheckerAvailable = UpdateManager::instance().checkAvailability();
+    ui->checkForUpdatesButton->setVisible(updateCheckerAvailable);
     
     Logger::log("Registering initial hotkey...");
     registerHotkey();
@@ -698,6 +704,17 @@ void MainWindow::closeEvent(QCloseEvent *event) {
                 event->ignore();
                 return;
             }
+            
+        } else {
+            // Normal close behavior - show confirmation dialog
+            QMessageBox::StandardButton reply = QMessageBox::question(this, "Quit Application", 
+                "Are you sure you want to quit MuteActiveWindow?", 
+                QMessageBox::Yes | QMessageBox::No);
+            
+            if (reply == QMessageBox::No) {
+                event->ignore();
+                return;
+            }
         }
         
         // Normal close behavior
@@ -769,14 +786,8 @@ void MainWindow::showMainWindow() {
 }
 
 void MainWindow::quitApplication() {
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Quit Application", 
-        "Are you sure you want to quit MuteActiveWindow?", 
-        QMessageBox::Yes | QMessageBox::No);
-    
-    if (reply == QMessageBox::Yes) {
-        Logger::log("Quitting application from tray");
-        QApplication::quit();
-    }
+    Logger::log("Quitting application from tray");
+    QApplication::quit();
 }
 
 void MainWindow::addCurrentProcess() {
@@ -854,4 +865,14 @@ void MainWindow::onDarkModeChanged() {
     settingsManager_.setDarkMode(darkMode);
     ThemeManager::instance().applyTheme(darkMode);
     Logger::log(QString("Dark mode changed to: %1").arg(darkMode ? "enabled" : "disabled"));
+}
+
+void MainWindow::checkForUpdates() {
+    Logger::log("=== Check for Updates Button Pressed ===");
+    
+    // Use the UpdateManager to handle the update check
+    UpdateManager::instance().checkForUpdates();
+    
+    // Show a brief status message
+    statusBar()->showMessage("Update checker launched", 2000);
 }
