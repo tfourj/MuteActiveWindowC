@@ -8,4 +8,5 @@
     <ForcedInstallation>true</ForcedInstallation>
     <Essential>true</Essential>
     <UpdateText>This will update MuteActiveWindowC to the latest version.</UpdateText>
+    <Script>componentscript.qs</Script>
 </Package> 

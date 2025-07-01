@@ -8,7 +8,7 @@
     <WizardDefaultHeight>600</WizardDefaultHeight>
     <WizardDefaultWidth>800</WizardDefaultWidth>
     <WizardStyle>Modern</WizardStyle>
-    <StartMenuDir>MuteActiveWindowC</StartMenuDir>
+    <StartMenuDir></StartMenuDir>
     <TargetDir>@ApplicationsDir@/MuteActiveWindowC</TargetDir>
     <AdminTargetDir>@HomeDir@/MuteActiveWindowC</AdminTargetDir>
     <AllowNonAsciiCharacters>true</AllowNonAsciiCharacters>
@@ -16,6 +16,7 @@
     <ControlScript>controllerscript.qs</ControlScript>
     <MaintenanceToolName>configure</MaintenanceToolName>
     <RemoveTargetDir>false</RemoveTargetDir>
+    <RunProgram>@TargetDir@/MuteActiveWindowC.exe</RunProgram>
     
     <RemoteRepositories>
         <Repository>

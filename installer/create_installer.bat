@@ -148,6 +148,13 @@ if exist "%INSTALLER_ROOT%controllerscript.qs" (
     echo WARNING: controllerscript.qs not found in installer directory
 )
 
+if exist "%INSTALLER_ROOT%componentscript.qs" (
+    copy "%INSTALLER_ROOT%componentscript.qs" "%META_DIR%\" >nul
+    echo Component script copied: componentscript.qs
+) else (
+    echo WARNING: componentscript.qs not found in installer directory
+)
+
 echo Essential files copied: MuteActiveWindowC.exe, Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, platforms folder
 
 :: 8) Create temporary config and package files with version and date
@@ -193,6 +200,16 @@ echo Running binarycreator to create online installer...
   -c "%TEMP_PACKAGE_DIR%\temp_config.xml" ^
   "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%"
 
+echo.
+set OFFLINE_INSTALLER_NAME=MuteActiveWindowC-Offline-Installer.exe
+
+echo Running binarycreator to create offline installer...
+"!IFW_BIN!\binarycreator.exe" ^
+  -t "!IFW_BIN!\installerbase.exe" ^
+  -p "%PACKAGES_DIR%" ^
+  -c "%TEMP_PACKAGE_DIR%\temp_config.xml" ^
+  "%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%"
+
 if exist "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%" (
     echo.
     echo SUCCESS: Created online installer "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%".
@@ -207,6 +224,18 @@ if exist "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%" (
 ) else (
     echo.
     echo ERROR: Online installer not created.
+)
+
+if exist "%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%" (
+    echo.
+    echo SUCCESS: Created offline installer "%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%".
+    echo Offline installer size: 
+    for %%A in ("%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%") do echo %%~zA bytes
+    echo.
+    echo Distribute the offline installer: %RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%
+) else (
+    echo.
+    echo ERROR: Offline installer not created.
 )
 
 :cleanup
