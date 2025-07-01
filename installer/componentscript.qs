@@ -5,7 +5,20 @@ function Component() {
 Component.prototype.createOperations = function() {
     console.log("Extract start");
 
-    // Call the base implementation first
+    // Kill any running MuteActiveWindowC.exe processes before installation
+    if (systemInfo.productType === "windows") {
+        console.log("Attempting to kill any running MuteActiveWindowC.exe processes...");
+        component.addOperation(
+            "Execute",
+            "taskkill",
+            "/f", "/im", "MuteActiveWindowC.exe",
+            "UNDOEXECUTE",
+            ""  // No undo command needed for process termination
+        );
+        console.log("Taskkill operation added.");
+    }
+
+    // Call the base implementation (Extract)
     component.createOperations();
 
     // Only on Windows do we add a Start-Menu shortcut
