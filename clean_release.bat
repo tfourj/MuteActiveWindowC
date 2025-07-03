@@ -26,8 +26,8 @@ if exist "%RELEASE_DIR%" (
     echo MuteActiveWindowC.exe found - proceeding with cleanup...
     echo.
     
-    :: Remove all DLLs except the 3 essential Qt6 ones
-    echo Removing all DLLs except Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll...
+    :: Remove all DLLs except the 4 essential Qt6 ones (now including Qt6Network.dll)
+    echo Removing all DLLs except Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, Qt6Network.dll...
     
     :: Keep essential Qt6 DLLs
     if exist "Qt6Core.dll" (
@@ -48,20 +48,35 @@ if exist "%RELEASE_DIR%" (
         echo Warning: Qt6Widgets.dll not found
     )
     
+    if exist "Qt6Network.dll" (
+        echo Keeping Qt6Network.dll
+    ) else (
+        echo Warning: Qt6Network.dll not found
+    )
+    
     :: Remove ALL other DLLs
     for %%f in (*.dll) do (
-        if not "%%f"=="Qt6Core.dll" if not "%%f"=="Qt6Gui.dll" if not "%%f"=="Qt6Widgets.dll" (
+        if not "%%f"=="Qt6Core.dll" if not "%%f"=="Qt6Gui.dll" if not "%%f"=="Qt6Widgets.dll" if not "%%f"=="Qt6Network.dll" (
             echo Removing: %%f
             del /q "%%f"
         )
     )
     
-    echo.
-    echo Removing all subfolders except platforms...
+    :: Remove ALL files except the defined DLLs and EXEs
+    echo Removing all files except MuteActiveWindowC.exe, Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, Qt6Network.dll...
+    for %%f in (*) do (
+        if /I not "%%f"=="MuteActiveWindowC.exe" if /I not "%%f"=="Qt6Core.dll" if /I not "%%f"=="Qt6Gui.dll" if /I not "%%f"=="Qt6Widgets.dll" if /I not "%%f"=="Qt6Network.dll" if not exist "%%f\" (
+            echo Removing file: %%f
+            del /q "%%f"
+        )
+    )
     
-    :: Remove all subfolders except platforms
+    echo.
+    echo Removing all subfolders except platforms and tls...
+    
+    :: Remove all subfolders except platforms and tls
     for /d %%d in (*) do (
-        if not "%%d"=="platforms" (
+        if not "%%d"=="platforms" if not "%%d"=="tls" (
             echo Removing folder: %%d
             rmdir /s /q "%%d"
         ) else (
@@ -69,21 +84,10 @@ if exist "%RELEASE_DIR%" (
         )
     )
     
-    :: Remove other common unwanted files
-    echo.
-    echo Removing debug and build artifacts...
-    if exist "*.pdb" del /q "*.pdb"
-    if exist "*.ilk" del /q "*.ilk"
-    if exist "*.qrc" del /q "*.qrc"
-    if exist "*.exp" del /q "*.exp"
-    if exist "*.lib" del /q "*.lib"
-    if exist "*.obj" del /q "*.obj"
-    if exist "*.o" del /q "*.o"
-    
     echo.
     echo Release directory cleaned successfully!
-    echo Kept: MuteActiveWindowC.exe, Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, platforms folder
-    echo Removed: All other DLLs, all other subfolders, and build artifacts
+    echo Kept: MuteActiveWindowC.exe, Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, Qt6Network.dll, platforms folder, tls folder
+    echo Removed: All other files and all other subfolders
     
 ) else (
     echo Error: release directory not found: %RELEASE_DIR%

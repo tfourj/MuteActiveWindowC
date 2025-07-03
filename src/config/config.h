@@ -45,6 +45,10 @@ public:
     bool getShowNotifications() const;
     void setShowNotifications(bool enabled);
     
+    // Auto-update settings
+    bool getAutoUpdateCheck() const;
+    void setAutoUpdateCheck(bool enabled);
+    
     // Check if setting exists
     bool contains(const QString& key) const;
     

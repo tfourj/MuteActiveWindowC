@@ -115,6 +115,15 @@ void Config::setShowNotifications(bool enabled) {
     Logger::log(QString("Show notifications setting saved: %1").arg(enabled ? "enabled" : "disabled"));
 }
 
+bool Config::getAutoUpdateCheck() const {
+    return settings_.value("autoUpdateCheck", true).toBool(); // Default to true (auto-update on)
+}
+
+void Config::setAutoUpdateCheck(bool enabled) {
+    settings_.setValue("autoUpdateCheck", enabled);
+    Logger::log(QString("Auto-update check setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
 void Config::save() {
     settings_.sync();
     Logger::log("All settings saved to registry");
@@ -128,6 +137,7 @@ void Config::save() {
     Logger::log(QString("  Close to tray: %1").arg(getCloseToTray() ? "true" : "false"));
     Logger::log(QString("  Dark mode: %1").arg(getDarkMode() ? "enabled" : "disabled"));
     Logger::log(QString("  Show notifications: %1").arg(getShowNotifications() ? "enabled" : "disabled"));
+    Logger::log(QString("  Auto-update check: %1").arg(getAutoUpdateCheck() ? "enabled" : "disabled"));
     Logger::log(QString("  Excluded devices: %1").arg(getExcludedDevices().join(", ")));
     Logger::log(QString("  Excluded processes: %1").arg(getExcludedProcesses().join(", ")));
 }

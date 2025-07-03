@@ -83,6 +83,12 @@ void SettingsManager::migrateSettings() {
         Logger::log("Added missing setting 'showNotifications' with default value: true");
     }
     
+    if (!config_.contains("autoUpdateCheck")) {
+        config_.setAutoUpdateCheck(true); // Default to auto-update enabled
+        needsSave = true;
+        Logger::log("Added missing setting 'autoUpdateCheck' with default value: true");
+    }
+    
     if (needsSave) {
         config_.save();
         Logger::log("Settings migration completed - new defaults applied");
@@ -117,6 +123,10 @@ bool SettingsManager::getDarkMode() const {
 
 bool SettingsManager::getShowNotifications() const {
     return config_.getShowNotifications();
+}
+
+bool SettingsManager::getAutoUpdateCheck() const {
+    return config_.getAutoUpdateCheck();
 }
 
 QStringList SettingsManager::getExcludedDevices() const {
@@ -160,6 +170,11 @@ void SettingsManager::setDarkMode(bool enabled) {
 
 void SettingsManager::setShowNotifications(bool enabled) {
     config_.setShowNotifications(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setAutoUpdateCheck(bool enabled) {
+    config_.setAutoUpdateCheck(enabled);
     emit settingsChanged();
 }
 

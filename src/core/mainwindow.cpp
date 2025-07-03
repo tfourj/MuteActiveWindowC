@@ -74,6 +74,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startupMinimizedCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->closeToTrayCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->showNotificationsCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
+    connect(ui->autoUpdateCheckBox, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->darkModeCheck, &QCheckBox::toggled, this, &MainWindow::onDarkModeChanged);
     
     // Setup system tray
@@ -110,9 +111,8 @@ MainWindow::MainWindow(QWidget *parent)
     // Populate device list
     populateDeviceList();
     
-    // Check for update checker availability and show/hide button accordingly
-    bool updateCheckerAvailable = UpdateManager::instance().checkAvailability();
-    ui->checkForUpdatesButton->setVisible(updateCheckerAvailable);
+    // Update checker button is always visible - it will check online first, then fallback to configure.exe or GitHub
+    ui->checkForUpdatesButton->setVisible(true);
     
     Logger::log("Registering initial hotkey...");
     registerHotkey();
@@ -125,6 +125,12 @@ MainWindow::MainWindow(QWidget *parent)
         // Only show the window if startup minimized is disabled
         show();
         Logger::log("Application started normally - window shown");
+    }
+    
+    // Check for updates on startup if enabled (delay slightly to ensure window is ready)
+    if (settingsManager_.getAutoUpdateCheck()) {
+        Logger::log("Performing startup update check");
+        UpdateManager::instance().checkForUpdates(false);
     }
     
     Logger::log("MainWindow constructor completed");
@@ -178,6 +184,11 @@ void MainWindow::loadSettings() {
     ui->showNotificationsCheck->setChecked(showNotifications);
     Logger::log(QString("Loaded show notifications setting: %1").arg(showNotifications ? "enabled" : "disabled"));
     
+    // Load auto-update check setting
+    bool autoUpdateCheck = settingsManager_.getAutoUpdateCheck();
+    ui->autoUpdateCheckBox->setChecked(autoUpdateCheck);
+    Logger::log(QString("Loaded auto-update check setting: %1").arg(autoUpdateCheck ? "enabled" : "disabled"));
+    
     // Load dark mode setting
     bool darkMode = settingsManager_.getDarkMode();
     ui->darkModeCheck->setChecked(darkMode);
@@ -213,6 +224,9 @@ void MainWindow::saveSettings() {
     
     // Save notification settings
     settingsManager_.setShowNotifications(ui->showNotificationsCheck->isChecked());
+    
+    // Save auto-update check setting
+    settingsManager_.setAutoUpdateCheck(ui->autoUpdateCheckBox->isChecked());
     
     // Save dark mode setting
     settingsManager_.setDarkMode(ui->darkModeCheck->isChecked());
@@ -718,7 +732,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         }
         
         // Normal close behavior
-        event->accept();
+        QApplication::quit();
         Logger::log("Application closing normally");
     }
 }
@@ -869,10 +883,8 @@ void MainWindow::onDarkModeChanged() {
 
 void MainWindow::checkForUpdates() {
     Logger::log("=== Check for Updates Button Pressed ===");
-    
     // Use the UpdateManager to handle the update check
-    UpdateManager::instance().checkForUpdates();
-    
+    UpdateManager::instance().checkForUpdates(true);
     // Show a brief status message
     statusBar()->showMessage("Update checker launched", 2000);
 }

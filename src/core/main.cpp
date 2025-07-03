@@ -34,6 +34,8 @@ int main(int argc, char *argv[])
     bool darkMode = settingsManager.getDarkMode();
     ThemeManager::instance().applyTheme(darkMode);
     
+    a.setQuitOnLastWindowClosed(false);
+    
     MainWindow w;
     
     // Don't show immediately - let MainWindow constructor handle it
