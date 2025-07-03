@@ -26,6 +26,7 @@ public:
     bool getShowNotifications() const;
     QStringList getExcludedDevices() const;
     QStringList getExcludedProcesses() const;
+    bool getAutoUpdateCheck() const;
     
     // Set settings
     void setHotkey(const QString& hotkey);
@@ -35,6 +36,7 @@ public:
     void setCloseToTray(bool enabled);
     void setDarkMode(bool enabled);
     void setShowNotifications(bool enabled);
+    void setAutoUpdateCheck(bool enabled);
     void setExcludedDevices(const QStringList& devices);
     void addExcludedDevice(const QString& device);
     void removeExcludedDevice(const QString& device);

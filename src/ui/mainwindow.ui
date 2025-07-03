@@ -354,6 +354,28 @@ spotify</string>
          </widget>
         </item>
         <item>
+         <widget class="QGroupBox" name="updatesGroup">
+          <property name="title">
+           <string>Updates</string>
+          </property>
+          <layout class="QVBoxLayout" name="updatesLayout">
+           <item>
+            <widget class="QCheckBox" name="autoUpdateCheckBox">
+             <property name="toolTip">
+              <string>Automatically check for updates when the application starts.</string>
+             </property>
+             <property name="text">
+              <string>Check for updates on startup</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
          <widget class="QGroupBox" name="filesGroup">
           <property name="title">
            <string>Files &amp; Folders</string>
