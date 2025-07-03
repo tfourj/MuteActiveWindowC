@@ -124,23 +124,20 @@ if exist "%TEMP_PACKAGE_DIR%" rmdir /s /q "%TEMP_PACKAGE_DIR%"
 mkdir "%DATA_DIR%"
 mkdir "%META_DIR%"
 
-:: 7) Copy only essential files to installer data directory
-echo Copying essential files to installer data directory...
+:: 7) Copy all remaining files and folders from cleaned release directory to installer data directory
+xcopy "%RELEASE_DIR%\*" "%DATA_DIR%\" /E /I /Y >nul
 
-:: Copy executable
-copy "%RELEASE_DIR%\MuteActiveWindowC.exe" "%DATA_DIR%\" >nul
+echo All cleaned release files copied to installer data directory.
 
-:: Copy essential Qt6 DLLs
-if exist "%RELEASE_DIR%\Qt6Core.dll" copy "%RELEASE_DIR%\Qt6Core.dll" "%DATA_DIR%\" >nul
-if exist "%RELEASE_DIR%\Qt6Gui.dll" copy "%RELEASE_DIR%\Qt6Gui.dll" "%DATA_DIR%\" >nul
-if exist "%RELEASE_DIR%\Qt6Widgets.dll" copy "%RELEASE_DIR%\Qt6Widgets.dll" "%DATA_DIR%\" >nul
-
-:: Copy platforms folder
-if exist "%RELEASE_DIR%\platforms" (
-    xcopy "%RELEASE_DIR%\platforms" "%DATA_DIR%\platforms" /E /I /Y >nul
+:: 8) Clean release directory using clean_release.bat
+if exist "%INSTALLER_ROOT%..\clean_release.bat" (
+    echo Running clean_release.bat on release directory...
+    call "%INSTALLER_ROOT%..\clean_release.bat" "%DATA_DIR%"
+) else (
+    echo WARNING: clean_release.bat not found! Skipping cleanup.
 )
 
-:: Copy control script to meta directory
+:: 9) Copy control script to meta directory
 if exist "%INSTALLER_ROOT%controllerscript.qs" (
     copy "%INSTALLER_ROOT%controllerscript.qs" "%TEMP_PACKAGE_DIR%\" >nul
     echo Control script copied: controllerscript.qs
@@ -157,7 +154,7 @@ if exist "%INSTALLER_ROOT%componentscript.qs" (
 
 echo Essential files copied: MuteActiveWindowC.exe, Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, platforms folder
 
-:: 8) Create temporary config and package files with version and date
+:: 10) Create temporary config and package files with version and date
 echo Creating temporary config and package files...
 
 :: Create temporary config.xml
@@ -166,11 +163,11 @@ powershell -Command "(Get-Content '%CONFIG_FILE%') -replace '@VERSION@', '%VERSI
 :: Create temporary package.xml
 powershell -Command "(Get-Content '%PACKAGE_XML%') -replace '@VERSION@', '%VERSION%' -replace '@RELEASE_DATE@', '%RELEASE_DATE%' | Set-Content '%META_DIR%\package.xml'"
 
-:: 9) Create output directories
+:: 11) Create output directories
 if not exist "%REPOSITORY_OUTPUT_DIR%" mkdir "%REPOSITORY_OUTPUT_DIR%"
 if not exist "%RELEASE_OUTPUT_DIR%" mkdir "%RELEASE_OUTPUT_DIR%"
 
-:: 10) Run repogen to create online repository
+:: 12) Run repogen to create online repository
 echo.
 echo Running repogen to create online repository...
 "!IFW_BIN!\repogen.exe" ^
@@ -190,7 +187,7 @@ if exist "%REPOSITORY_OUTPUT_DIR%\Updates.xml" (
     goto :cleanup
 )
 
-:: 11) Run binarycreator to create online installer
+:: 13) Run binarycreator to create online installer
 echo.
 echo Running binarycreator to create online installer...
 "!IFW_BIN!\binarycreator.exe" ^
@@ -239,9 +236,9 @@ if exist "%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%" (
 )
 
 :cleanup
-:: 12) Clean up temporary package structure
+:: 14) Clean up temporary package structure
 echo.
-echo Cleaning up temporary files...
-if exist "%TEMP_PACKAGE_DIR%" rmdir /s /q "%TEMP_PACKAGE_DIR%"
+:: echo Cleaning up temporary files...
+:: if exist "%TEMP_PACKAGE_DIR%" rmdir /s /q "%TEMP_PACKAGE_DIR%"
 
 endlocal 

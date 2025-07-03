@@ -10,8 +10,8 @@ Component.prototype.createOperations = function() {
         console.log("Attempting to kill any running MuteActiveWindowC.exe processes...");
         component.addOperation(
             "Execute",
-            "taskkill",
-            "/f", "/im", "MuteActiveWindowC.exe",
+            "cmd.exe",
+            "/c", "taskkill /f /im MuteActiveWindowC.exe || exit 0",
             "UNDOEXECUTE",
             ""  // No undo command needed for process termination
         );
