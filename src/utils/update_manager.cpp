@@ -184,7 +184,7 @@ void UpdateManager::parseVersionXml(const QByteArray& xmlData) {
         Logger::log("No update available");
         if (userInitiated_) {
             QMessageBox::information(nullptr, "No Updates Available", 
-                QString("You are running the latest version (%1).").arg(currentVersion));
+                QString("You are running the latest version v%1\n\nVersion v%2 is the version available on the repository.").arg(currentVersion, remoteVersion));
         }
     }
 }
