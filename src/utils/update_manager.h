@@ -47,5 +47,6 @@ private:
     void showUpdatePrompt(const QString& newVersion);
     void fallbackToConfigureOrGitHub();
     void openGitHubReleases();
+    void showUpdateCheckError(const QString& reason);
     bool userInitiated_ = false;
 }; 

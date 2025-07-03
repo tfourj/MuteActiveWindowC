@@ -75,12 +75,17 @@ void UpdateManager::checkForUpdates(bool triggeredByUser) {
     checkOnlineVersion();
 }
 
+void UpdateManager::showUpdateCheckError(const QString& reason) {
+    Logger::log("Showing update check error dialog: " + reason);
+    QMessageBox::warning(nullptr, "Update Check Failed", QString("Failed to check for updates.\nReason: %1").arg(reason));
+}
+
 void UpdateManager::checkOnlineVersion() {
     Logger::log("Checking online version from Updates.xml");
     
     if (!networkManager_) {
-        Logger::log("Network manager not initialized, falling back to configure.exe");
-        fallbackToConfigureOrGitHub();
+        Logger::log("Network manager not initialized, showing update check error");
+        showUpdateCheckError("Network manager not initialized");
         return;
     }
     
@@ -104,15 +109,16 @@ void UpdateManager::checkOnlineVersion() {
 void UpdateManager::onVersionCheckFinished() {
     if (!currentReply_) {
         Logger::log("No current reply in onVersionCheckFinished");
-        fallbackToConfigureOrGitHub();
+        showUpdateCheckError("No network reply");
         return;
     }
     
     if (currentReply_->error() != QNetworkReply::NoError) {
-        Logger::log(QString("Online version check failed: %1").arg(currentReply_->errorString()));
+        QString errorStr = currentReply_->errorString();
+        Logger::log(QString("Online version check failed: %1").arg(errorStr));
         currentReply_->deleteLater();
         currentReply_ = nullptr;
-        fallbackToConfigureOrGitHub();
+        showUpdateCheckError(errorStr);
         return;
     }
     
@@ -123,8 +129,8 @@ void UpdateManager::onVersionCheckFinished() {
     Logger::log(QString("Received XML data (%1 bytes)").arg(data.size()));
     
     if (data.isEmpty()) {
-        Logger::log("Received empty XML data, falling back to configure.exe");
-        fallbackToConfigureOrGitHub();
+        Logger::log("Received empty XML data, showing update check error");
+        showUpdateCheckError("Received empty XML data");
         return;
     }
     
@@ -156,14 +162,15 @@ void UpdateManager::parseVersionXml(const QByteArray& xmlData) {
     }
     
     if (xml.hasError()) {
-        Logger::log(QString("XML parsing error: %1").arg(xml.errorString()));
-        fallbackToConfigureOrGitHub();
+        QString errorStr = xml.errorString();
+        Logger::log(QString("XML parsing error: %1").arg(errorStr));
+        showUpdateCheckError(QString("XML parsing error: %1").arg(errorStr));
         return;
     }
     
     if (remoteVersion.isEmpty()) {
-        Logger::log("No version found in XML, falling back to configure.exe");
-        fallbackToConfigureOrGitHub();
+        Logger::log("No version found in XML, showing update check error");
+        showUpdateCheckError("No version found in XML");
         return;
     }
     
