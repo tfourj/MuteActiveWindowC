@@ -11,9 +11,7 @@ Component.prototype.createOperations = function() {
         component.addOperation(
             "Execute",
             "cmd.exe",
-            "/c", "taskkill /f /im MuteActiveWindowC.exe || exit 0",
-            "UNDOEXECUTE",
-            ""  // No undo command needed for process termination
+            "/c", "taskkill /f /im MuteActiveWindowC.exe || exit 0"
         );
         console.log("Taskkill operation added.");
     }
