@@ -58,7 +58,32 @@ void Config::setExcludedProcesses(const QStringList& processes) {
 }
 
 bool Config::isProcessExcluded(const QString& process) const {
-    return getExcludedProcesses().contains(process, Qt::CaseInsensitive);
+    QStringList excludedProcesses = getExcludedProcesses();
+    
+    // Check exact match first
+    if (excludedProcesses.contains(process, Qt::CaseInsensitive)) {
+        return true;
+    }
+    
+    // Check normalized match (remove .exe extension if present)
+    QString normalizedProcess = process;
+    if (normalizedProcess.endsWith(".exe", Qt::CaseInsensitive)) {
+        normalizedProcess = normalizedProcess.left(normalizedProcess.length() - 4);
+    }
+    
+    // Check if normalized process name is in the exclusion list
+    for (const QString& excluded : excludedProcesses) {
+        QString normalizedExcluded = excluded;
+        if (normalizedExcluded.endsWith(".exe", Qt::CaseInsensitive)) {
+            normalizedExcluded = normalizedExcluded.left(normalizedExcluded.length() - 4);
+        }
+        
+        if (normalizedProcess.compare(normalizedExcluded, Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 bool Config::getMainProcessOnly() const {
