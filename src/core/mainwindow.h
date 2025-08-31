@@ -13,8 +13,8 @@
 #include "settings_manager.h"
 #include "theme_manager.h"
 #include "update_manager.h"
-#include "ui_mainwindow.h"
 #include "process_selection_dialog.h"
+#include "ui_mainwindow.h"
 #include "keyboard_hook.h"
 #include <QDialog>
 #include <QVBoxLayout>
@@ -43,6 +43,7 @@ protected:
 private slots:
     void applySettings();
     void testHotkey();
+    void simulateHotkeyInSelectedApp();
     void addExcludedDevice();
     void removeExcludedDevice();
     void refreshDevices();

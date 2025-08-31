@@ -637,7 +637,132 @@ void MainWindow::onHotkeyTriggered() {
 
 void MainWindow::testHotkey() {
     Logger::log("=== Test Hotkey Button Pressed ===");
-    onHotkeyTriggered();
+    simulateHotkeyInSelectedApp();
+}
+
+void MainWindow::simulateHotkeyInSelectedApp() {
+    Logger::log("=== Simulate Hotkey in Selected App ===");
+    
+    // Show process selection dialog
+    ProcessSelectionDialog dialog(ProcessSelectionDialog::SimulationMode, this);
+    if (dialog.exec() != QDialog::Accepted) {
+        Logger::log("Process selection cancelled by user");
+        return;
+    }
+    
+    QString selectedProcess = dialog.getSelectedProcess();
+    DWORD selectedPID = dialog.getSelectedPID();
+    
+    if (selectedProcess.isEmpty() || selectedPID == 0) {
+        Logger::log("No valid process selected");
+        return;
+    }
+    
+    Logger::log(QString("User selected process: %1 (PID: %2)").arg(selectedProcess).arg(selectedPID));
+    
+    // Find the main window of the selected process (more flexible approach)
+    HWND targetWindow = nullptr;
+    DWORD data[3] = {selectedPID, 0, 0}; // PID, HWND, best score
+    
+    // First pass: look for the best window
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        DWORD* dataArray = reinterpret_cast<DWORD*>(lParam);
+        DWORD targetPID = dataArray[0];
+        DWORD windowPID = 0;
+        
+        GetWindowThreadProcessId(hwnd, &windowPID);
+        
+        if (windowPID == targetPID) {
+            if (IsWindowVisible(hwnd)) {
+                char title[256] = {0};
+                int titleLen = GetWindowTextA(hwnd, title, sizeof(title));
+                
+                // Calculate window "score" for best match
+                int score = 0;
+                
+                // Prefer windows with titles
+                if (titleLen > 0) score += 10;
+                
+                // Prefer main windows (no owner)
+                if (GetWindow(hwnd, GW_OWNER) == nullptr) score += 20;
+                
+                // Prefer windows that are not minimized
+                if (!IsIconic(hwnd)) score += 5;
+                
+                // Prefer larger windows
+                RECT rect;
+                if (GetWindowRect(hwnd, &rect)) {
+                    int area = (rect.right - rect.left) * (rect.bottom - rect.top);
+                    if (area > 10000) score += 3; // Decent size window
+                }
+                
+                // Check window class for common app window types
+                char className[256] = {0};
+                if (GetClassNameA(hwnd, className, sizeof(className)) > 0) {
+                    QString classStr = QString::fromLatin1(className);
+                    if (classStr.contains("Chrome", Qt::CaseInsensitive) ||
+                        classStr.contains("Mozilla", Qt::CaseInsensitive) ||
+                        classStr.contains("Spotify", Qt::CaseInsensitive) ||
+                        classStr.contains("Qt", Qt::CaseInsensitive) ||
+                        classStr.contains("Application", Qt::CaseInsensitive)) {
+                        score += 15;
+                    }
+                }
+                
+                // Update if this is the best window so far
+                if (score > static_cast<int>(dataArray[2])) {
+                    dataArray[1] = reinterpret_cast<DWORD>(hwnd);
+                    dataArray[2] = score;
+                }
+            }
+        }
+        return TRUE; // Continue enumeration to find the best window
+    }, reinterpret_cast<LPARAM>(data));
+    
+    targetWindow = reinterpret_cast<HWND>(data[1]);
+    
+    if (!targetWindow) {
+        Logger::log(QString("Could not find main window for process %1 (PID: %2)").arg(selectedProcess).arg(selectedPID));
+        return;
+    }
+    
+    // Log details about the selected window
+    char windowTitle[256] = {0};
+    char className[256] = {0};
+    GetWindowTextA(targetWindow, windowTitle, sizeof(windowTitle));
+    GetClassNameA(targetWindow, className, sizeof(className));
+    Logger::log(QString("Selected window: '%1' (Class: %2, Score: %3)")
+               .arg(QString::fromLatin1(windowTitle))
+               .arg(QString::fromLatin1(className))
+               .arg(data[2]));
+    
+    // Focus the target application
+    Logger::log(QString("Focusing window: 0x%1").arg(reinterpret_cast<quintptr>(targetWindow), 0, 16));
+    
+    // Use a more robust method to bring window to foreground
+    if (IsIconic(targetWindow)) {
+        ShowWindow(targetWindow, SW_RESTORE);
+    }
+    
+    SetForegroundWindow(targetWindow);
+    BringWindowToTop(targetWindow);
+    
+    // Wait a bit for the window to be focused
+    Sleep(200);
+    
+    // Verify the window is now in foreground
+    HWND currentFG = GetForegroundWindow();
+    if (currentFG == targetWindow) {
+        Logger::log("Successfully focused target application");
+        
+        // Now simulate the hotkey on this specific application
+        Logger::log("Simulating hotkey on focused application");
+        onHotkeyTriggered();
+    } else {
+        Logger::log(QString("Failed to focus target application. Current FG: 0x%1, Target: 0x%2")
+                   .arg(reinterpret_cast<quintptr>(currentFG), 0, 16)
+                   .arg(reinterpret_cast<quintptr>(targetWindow), 0, 16));
+    }
 }
 
 void MainWindow::populateDeviceList() {
@@ -881,7 +1006,7 @@ void MainWindow::quitApplication() {
 }
 
 void MainWindow::addCurrentProcess() {
-    ProcessSelectionDialog dialog(this);
+    ProcessSelectionDialog dialog(ProcessSelectionDialog::ExclusionMode, this);
     
     if (dialog.exec() == QDialog::Accepted) {
         QString processName = dialog.getSelectedProcess();
