@@ -1,244 +1,121 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
-:: 1) Get release directory and version from arguments
-if "%~1"=="" (
-    echo ERROR: No release directory specified!
-    echo Usage: create_installer.bat [release_directory_path] [version]
-    echo Example: create_installer.bat "C:\path\to\release" "1.0.0"
-    goto :EOF
-)
-set RELEASE_DIR=%~1
+REM === Accept arguments ===
+set "APP_BUILD_DIR=%~1"
+set "VERSION=%~2"
 
-if "%~2"=="" (
-    echo ERROR: No version specified!
-    echo Usage: create_installer.bat [release_directory_path] [version]
-    echo Example: create_installer.bat "C:\path\to\release" "1.0.0"
-    goto :EOF
-)
-set VERSION=%~2
-
-:: 2) Auto-detect Qt IFW bin folder
-set IFW_BIN=
-for %%i in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.10\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.10\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.9\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.9\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.8\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.8\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.7\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.7\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.6\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.6\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.5\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.5\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.4\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.4\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.3\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.3\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.2\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.2\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.1\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.1\bin
-        goto :found_ifw
-    )
-    if exist "%%i:\Qt\Tools\QtInstallerFramework\4.0\bin\repogen.exe" (
-        set IFW_BIN=%%i:\Qt\Tools\QtInstallerFramework\4.0\bin
-        goto :found_ifw
-    )
+if not defined APP_BUILD_DIR (
+    echo [ERROR] Usage: %~nx0 "path\to\deploy_dir" "version"
+    pause
+    exit /b 1
 )
 
-:found_ifw
-if "!IFW_BIN!"=="" (
-    echo ERROR: Qt IFW not found. Please install Qt Installer Framework.
-    echo Expected locations: C:\Qt\Tools\QtInstallerFramework\4.x\bin\
-    echo.
-    set /p IFW_BIN="Enter Qt IFW bin folder manually: "
+if not defined VERSION set "VERSION=1.3.2"
+
+REM === Dynamic Paths ===
+set "SCRIPT_DIR=%~dp0"
+set "NSIS_SCRIPT=%SCRIPT_DIR%installer\installer.nsi"
+set "INSTALLER_DIR=%SCRIPT_DIR%temp_installer"
+set "MuteActiveWindowC_COPY_DIR=%INSTALLER_DIR%\MuteActiveWindowC"
+set "MAKENSIS_PATH=D:\Programi\NSIS\makensis.exe"
+
+echo [INFO] Using deploy directory: %APP_BUILD_DIR%
+echo [INFO] Using version: %VERSION%
+echo [INFO] Using NSIS script: %NSIS_SCRIPT%
+
+REM === Check if makensis exists ===
+if not exist "%MAKENSIS_PATH%" (
+    echo [ERROR] makensis.exe not found at "%MAKENSIS_PATH%"
+    pause
+    exit /b 1
 )
 
-if not exist "!IFW_BIN!\repogen.exe" (
-    echo ERROR: repogen.exe not found in "!IFW_BIN!".
-    goto :EOF
-)
-if not exist "!IFW_BIN!\binarycreator.exe" (
-    echo ERROR: binarycreator.exe not found in "!IFW_BIN!".
-    goto :EOF
-)
-if not exist "!IFW_BIN!\installerbase.exe" (
-    echo ERROR: installerbase.exe not found in "!IFW_BIN!".
-    goto :EOF
+REM === Remove old MuteActiveWindowC folder if exists ===
+if exist "%MuteActiveWindowC_COPY_DIR%" (
+    echo [INFO] Removing old MuteActiveWindowC folder...
+    rmdir /s /q "%MuteActiveWindowC_COPY_DIR%"
 )
 
-echo Found Qt IFW at: !IFW_BIN!
-echo Using release directory: %RELEASE_DIR%
-echo Using version: %VERSION%
+REM === Create installer directory ===
+if not exist "%INSTALLER_DIR%" mkdir "%INSTALLER_DIR%"
 
-:: 3) Project-specific paths
-set INSTALLER_ROOT=%~dp0
-set PACKAGES_DIR=%INSTALLER_ROOT%packages
-set CONFIG_FILE=%INSTALLER_ROOT%config.xml
-set PACKAGE_XML=%INSTALLER_ROOT%package.xml
-set REPOSITORY_OUTPUT_DIR=%INSTALLER_ROOT%repository
-set RELEASE_OUTPUT_DIR=%INSTALLER_ROOT%release
-set ONLINE_INSTALLER_NAME=MuteActiveWindowC-Online-Installer.exe
-
-:: 4) Check if release files exist
-if not exist "%RELEASE_DIR%\MuteActiveWindowC.exe" (
-    echo ERROR: Release build not found at "%RELEASE_DIR%\MuteActiveWindowC.exe"
-    echo Please build the project in Release mode first.
-    goto :EOF
+REM === Copy new build files ===
+echo [INFO] Copying app files to installer folder...
+if exist "%MuteActiveWindowC_COPY_DIR%" rmdir /s /q "%MuteActiveWindowC_COPY_DIR%"
+mkdir "%MuteActiveWindowC_COPY_DIR%"
+xcopy "%APP_BUILD_DIR%\*" "%MuteActiveWindowC_COPY_DIR%\" /E /I /Y
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Failed to copy files from %APP_BUILD_DIR%
+    pause
+    exit /b 1
 )
+echo [INFO] Files copied successfully
+dir "%MuteActiveWindowC_COPY_DIR%" /B
 
-:: 5) Get current date for release date
-for /f %%i in ('powershell -Command "Get-Date -Format 'yyyy-MM-dd'"') do set "RELEASE_DATE=%%i"
-echo Release date: %RELEASE_DATE%
+REM === Copy NSIS script and license to temp directory ===
+set "TEMP_NSIS_SCRIPT=%INSTALLER_DIR%\installer.nsi"
+set "LICENSE_FILE=%SCRIPT_DIR%installer\license.txt"
+set "TEMP_LICENSE_FILE=%INSTALLER_DIR%\license.txt"
+copy "%NSIS_SCRIPT%" "%TEMP_NSIS_SCRIPT%"
+copy "%LICENSE_FILE%" "%TEMP_LICENSE_FILE%"
 
-:: 6) Create temporary package structure
-echo.
-echo Creating temporary package structure...
-set TEMP_PACKAGE_DIR=%PACKAGES_DIR%\com.muteactivewindowc
-set DATA_DIR=%TEMP_PACKAGE_DIR%\data
-set META_DIR=%TEMP_PACKAGE_DIR%\meta
-
-:: Clean and create directories
-if exist "%TEMP_PACKAGE_DIR%" rmdir /s /q "%TEMP_PACKAGE_DIR%"
-mkdir "%DATA_DIR%"
-mkdir "%META_DIR%"
-
-:: 7) Copy all remaining files and folders from cleaned release directory to installer data directory
-xcopy "%RELEASE_DIR%\*" "%DATA_DIR%\" /E /I /Y >nul
-
-echo All cleaned release files copied to installer data directory.
-
-:: 8) Clean release directory using clean_release.bat
-if exist "%INSTALLER_ROOT%..\clean_release.bat" (
-    echo Running clean_release.bat on release directory...
-    call "%INSTALLER_ROOT%..\clean_release.bat" "%DATA_DIR%"
+REM === Debug: Check directory structure ===
+echo [DEBUG] Contents of installer directory:
+dir "%INSTALLER_DIR%" /B
+echo [DEBUG] Contents of MuteActiveWindowC folder:
+if exist "%MuteActiveWindowC_COPY_DIR%" (
+    dir "%MuteActiveWindowC_COPY_DIR%" /B
 ) else (
-    echo WARNING: clean_release.bat not found! Skipping cleanup.
+    echo [ERROR] MuteActiveWindowC folder does not exist!
 )
 
-:: 9) Copy control script to meta directory
-if exist "%INSTALLER_ROOT%controllerscript.qs" (
-    copy "%INSTALLER_ROOT%controllerscript.qs" "%TEMP_PACKAGE_DIR%\" >nul
-    echo Control script copied: controllerscript.qs
+REM === Compile the NSIS script ===
+echo [INFO] Compiling installer...
+pushd "%INSTALLER_DIR%"
+echo [DEBUG] Current directory: %CD%
+echo [DEBUG] Files in current directory:
+dir /B
+echo [DEBUG] Checking MuteActiveWindowC folder:
+if exist "MuteActiveWindowC" (
+    echo [DEBUG] MuteActiveWindowC folder found - contents:
+    dir "MuteActiveWindowC" /B
 ) else (
-    echo WARNING: controllerscript.qs not found in installer directory
+    echo [ERROR] MuteActiveWindowC folder NOT found in %CD%
+)
+"%MAKENSIS_PATH%" "installer.nsi"
+set "NSIS_RESULT=%ERRORLEVEL%"
+popd
+
+REM === Check result ===
+if %NSIS_RESULT% NEQ 0 (
+    echo [ERROR] NSIS compilation failed!
+    pause
+    exit /b 1
 )
 
-if exist "%INSTALLER_ROOT%componentscript.qs" (
-    copy "%INSTALLER_ROOT%componentscript.qs" "%META_DIR%\" >nul
-    echo Component script copied: componentscript.qs
+REM === Move installer to build directory ===
+set "OUTPUT_INSTALLER=%INSTALLER_DIR%\MuteActiveWindowC-Setup.exe"
+set "FINAL_INSTALLER=%APP_BUILD_DIR%\..\MuteActiveWindowC-Setup.exe"
+
+if exist "%OUTPUT_INSTALLER%" (
+    echo [INFO] Moving installer to: %FINAL_INSTALLER%
+    move "%OUTPUT_INSTALLER%" "%FINAL_INSTALLER%"
 ) else (
-    echo WARNING: componentscript.qs not found in installer directory
+    echo [ERROR] Installer file not found at: %OUTPUT_INSTALLER%
 )
 
-echo Essential files copied: MuteActiveWindowC.exe, Qt6Core.dll, Qt6Gui.dll, Qt6Widgets.dll, platforms folder
+REM === Clean up temporary folder ===
+echo [INFO] Cleaning up temporary installer folder...
+rmdir /s /q "%INSTALLER_DIR%"
 
-:: 10) Create temporary config and package files with version and date
-echo Creating temporary config and package files...
-
-:: Create temporary config.xml
-powershell -Command "(Get-Content '%CONFIG_FILE%') -replace '@VERSION@', '%VERSION%' | Set-Content '%TEMP_PACKAGE_DIR%\temp_config.xml'"
-
-:: Create temporary package.xml
-powershell -Command "(Get-Content '%PACKAGE_XML%') -replace '@VERSION@', '%VERSION%' -replace '@RELEASE_DATE@', '%RELEASE_DATE%' | Set-Content '%META_DIR%\package.xml'"
-
-:: 11) Create output directories
-if not exist "%REPOSITORY_OUTPUT_DIR%" mkdir "%REPOSITORY_OUTPUT_DIR%"
-if not exist "%RELEASE_OUTPUT_DIR%" mkdir "%RELEASE_OUTPUT_DIR%"
-
-:: 12) Run repogen to create online repository
-echo.
-echo Running repogen to create online repository...
-"!IFW_BIN!\repogen.exe" ^
-  --unite-metadata ^
-  --remove ^
-  --packages "%PACKAGES_DIR%" ^
-  "%REPOSITORY_OUTPUT_DIR%"
-
-if exist "%REPOSITORY_OUTPUT_DIR%\Updates.xml" (
-    echo.
-    echo SUCCESS: Created online repository in "%REPOSITORY_OUTPUT_DIR%".
-    echo Repository files:
-    dir "%REPOSITORY_OUTPUT_DIR%"
+if exist "%FINAL_INSTALLER%" (
+    echo [SUCCESS] Installer built successfully: %FINAL_INSTALLER%
 ) else (
-    echo.
-    echo ERROR: Repository not created.
-    goto :cleanup
+    echo [ERROR] Final installer not found!
+    pause
+    exit /b 1
 )
-
-:: 13) Run binarycreator to create online installer
-echo.
-echo Running binarycreator to create online installer...
-"!IFW_BIN!\binarycreator.exe" ^
-  --online-only ^
-  -t "!IFW_BIN!\installerbase.exe" ^
-  -p "%PACKAGES_DIR%" ^
-  -c "%TEMP_PACKAGE_DIR%\temp_config.xml" ^
-  "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%"
 
 echo.
-set OFFLINE_INSTALLER_NAME=MuteActiveWindowC-Offline-Installer.exe
-
-echo Running binarycreator to create offline installer...
-"!IFW_BIN!\binarycreator.exe" ^
-  -t "!IFW_BIN!\installerbase.exe" ^
-  -p "%PACKAGES_DIR%" ^
-  -c "%TEMP_PACKAGE_DIR%\temp_config.xml" ^
-  "%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%"
-
-if exist "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%" (
-    echo.
-    echo SUCCESS: Created online installer "%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%".
-    echo Online installer size: 
-    for %%A in ("%RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%") do echo %%~zA bytes
-    echo.
-    echo To deploy online updates:
-    echo 1. Upload the contents of %REPOSITORY_OUTPUT_DIR% to your web server
-    echo 2. Update the repository URL in config.xml if needed
-    echo 3. Distribute the online installer: %RELEASE_OUTPUT_DIR%\%ONLINE_INSTALLER_NAME%
-    echo 4. Users can now install and update automatically
-) else (
-    echo.
-    echo ERROR: Online installer not created.
-)
-
-if exist "%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%" (
-    echo.
-    echo SUCCESS: Created offline installer "%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%".
-    echo Offline installer size: 
-    for %%A in ("%RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%") do echo %%~zA bytes
-    echo.
-    echo Distribute the offline installer: %RELEASE_OUTPUT_DIR%\%OFFLINE_INSTALLER_NAME%
-) else (
-    echo.
-    echo ERROR: Offline installer not created.
-)
-
-:cleanup
-:: 14) Clean up temporary package structure
-echo.
-:: echo Cleaning up temporary files...
-:: if exist "%TEMP_PACKAGE_DIR%" rmdir /s /q "%TEMP_PACKAGE_DIR%"
-
-endlocal 
+endlocal

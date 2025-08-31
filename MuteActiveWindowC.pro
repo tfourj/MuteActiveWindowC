@@ -53,8 +53,14 @@ DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 # Auto-deploy after build (Release only)
 win32:CONFIG(release, release|debug) {
     QMAKE_POST_LINK = $$(QTDIR)/bin/windeployqt.exe $$shell_quote($$OUT_PWD/release/$$shell_quote($$TARGET).exe) --no-compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw && \
-    cmd /c "$$PWD\\clean_release.bat" "$$OUT_PWD\\release" && \
-    cmd /c "$$PWD\\installer\\create_installer.bat" "$$OUT_PWD\\release" "$$shell_quote($$VERSION)"
+    cmd /c "$$PWD\\clean_release.bat" "$$OUT_PWD\\release"
+    
+    # Run user post-deploy script if it exists
+    exists($$PWD/installer/user_post_deploy.bat) {
+        QMAKE_POST_LINK += && cmd /c "$$PWD\\installer\\user_post_deploy.bat" "$$OUT_PWD\\release" "$$shell_quote($$VERSION)"
+    } else {
+        QMAKE_POST_LINK += && cmd /c "$$PWD\\installer\\create_installer.bat" "$$OUT_PWD\\release" "$$shell_quote($$VERSION)"
+    }
 }
 
 # Windows executable properties
