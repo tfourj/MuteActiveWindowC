@@ -58,6 +58,7 @@ private slots:
     void onDarkModeChanged();
     void onUseHookChanged();
     void checkForUpdates();
+    void showHotkeyInfo();
 
 private:
     void registerHotkey();

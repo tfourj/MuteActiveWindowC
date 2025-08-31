@@ -69,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->clearProcessesButton, &QPushButton::clicked, this, &MainWindow::clearProcesses);
     connect(ui->saveProcessesButton, &QPushButton::clicked, this, &MainWindow::saveProcesses);
     connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &MainWindow::checkForUpdates);
+    connect(ui->hotkeyInfoButton, &QPushButton::clicked, this, &MainWindow::showHotkeyInfo);
     
     // Connect settings checkboxes to auto-save
     connect(ui->startupCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
@@ -938,4 +939,53 @@ void MainWindow::checkForUpdates() {
     UpdateManager::instance().checkForUpdates(true);
     // Show a brief status message
     statusBar()->showMessage("Update checker launched", 2000);
+}
+
+void MainWindow::showHotkeyInfo() {
+    QString infoText = 
+        "<h3>Hotkey Format Information</h3>"
+        
+        "<h4>Modifier Keys:</h4>"
+        "<ul>"
+        "<li><b>Ctrl</b> - Control key</li>"
+        "<li><b>Alt</b> - Alt key</li>"
+        "<li><b>Shift</b> - Shift key</li>"
+        "<li><b>Win</b> - Windows key (Meta key)</li>"
+        "</ul>"
+        
+        "<h4>Supported Keys:</h4>"
+        "<ul>"
+        "<li><b>Function Keys:</b> F1, F2, F3, ... F24</li>"
+        "<li><b>Letters:</b> A, B, C, ... Z</li>"
+        "<li><b>Numbers:</b> 0, 1, 2, ... 9</li>"
+        "<li><b>Special Keys:</b> Space, Tab, Return, Escape, Backspace, Delete, Insert, Home, End, PageUp, PageDown</li>"
+        "<li><b>Arrow Keys:</b> Left, Right, Up, Down</li>"
+        "</ul>"
+        
+        "<h4>Format Examples:</h4>"
+        "<ul>"
+        "<li><b>Single key:</b> F1, F16, A, Space</li>"
+        "<li><b>One modifier:</b> Ctrl+F1, Alt+M, Shift+A</li>"
+        "<li><b>Two modifiers:</b> Ctrl+Alt+F1, Shift+Win+A</li>"
+        "<li><b>Three modifiers:</b> Ctrl+Alt+Shift+F1, Ctrl+Win+Alt+F2</li>"
+        "<li><b>All modifiers:</b> Ctrl+Alt+Shift+Win+F1</li>"
+        "</ul>"
+        
+        "<h4>Tips:</h4>"
+        "<ul>"
+        "<li>Use <b>hook detection</b> if hotkeys don't work in games</li>"
+        "<li>Function keys (F13-F24) are rarely used and work well</li>"
+        "<li>Avoid common system shortcuts (Ctrl+C, Alt+Tab, etc.)</li>"
+        "<li>Test your hotkey with the <b>Test Hotkey</b> button</li>"
+        "</ul>";
+    
+    QMessageBox infoBox(this);
+    infoBox.setWindowTitle("Hotkey Information");
+    infoBox.setTextFormat(Qt::RichText);
+    infoBox.setText(infoText);
+    infoBox.setIcon(QMessageBox::Information);
+    infoBox.setStandardButtons(QMessageBox::Ok);
+    infoBox.exec();
+    
+    Logger::log("Displayed hotkey info dialog");
 }

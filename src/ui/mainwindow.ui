@@ -33,11 +33,31 @@
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="hotkeyEdit">
-          <property name="placeholderText">
-           <string>e.g., Ctrl+F1, Alt+M, Shift+F2, F16</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="hotkeyInputLayout">
+          <item>
+           <widget class="QLineEdit" name="hotkeyEdit">
+            <property name="placeholderText">
+             <string>e.g., Ctrl+F1, Alt+M, Ctrl+Win+F2, Shift+Alt+F16</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="hotkeyInfoButton">
+            <property name="maximumSize">
+             <size>
+              <width>30</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Show information about supported hotkey formats and modifier keys</string>
+            </property>
+            <property name="text">
+             <string>?</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
          <widget class="QCheckBox" name="mainProcessOnlyCheck">
