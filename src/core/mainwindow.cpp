@@ -163,8 +163,17 @@ void MainWindow::loadSettings() {
     // Load hotkey
     QString hotkey = settingsManager_.getHotkey();
     currentSeq_ = QKeySequence::fromString(hotkey);
-    ui->hotkeyEdit->setText(currentSeq_.toString());
-    Logger::log(QString("Loaded hotkey from settings: '%1'").arg(currentSeq_.toString()));
+    
+    // Convert "Meta" back to "Win" for user-friendly display
+    QString displayText = currentSeq_.toString();
+    displayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
+    displayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
+    if (displayText == "Meta") {
+        displayText = "Win";
+    }
+    
+    ui->hotkeyEdit->setText(displayText);
+    Logger::log(QString("Loaded hotkey from settings: '%1' (displayed as: '%2')").arg(currentSeq_.toString()).arg(displayText));
     
     // Load main process only setting
     bool mainProcessOnly = settingsManager_.getMainProcessOnly();
@@ -217,11 +226,9 @@ void MainWindow::loadSettings() {
 }
 
 void MainWindow::saveSettings() {
-    // Save hotkey
-    QString hotkeyText = ui->hotkeyEdit->text().trimmed();
-    if (!hotkeyText.isEmpty()) {
-        settingsManager_.setHotkey(hotkeyText);
-    }
+    // Don't save hotkey here - it should only be saved through applySettings()
+    // This function is called when checkboxes change, and we shouldn't save
+    // potentially unprocessed hotkey text from the UI field
     
     // Save main process only setting
     settingsManager_.setMainProcessOnly(ui->mainProcessOnlyCheck->isChecked());
@@ -269,7 +276,19 @@ void MainWindow::applySettings() {
         return;
     }
     
-    currentSeq_ = QKeySequence::fromString(keyText);
+    // Preprocess the key text to convert "Win" to "Meta" for Qt compatibility
+    QString processedKeyText = keyText;
+    processedKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
+    processedKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
+    if (processedKeyText == "Win") {
+        processedKeyText = "Meta";
+    }
+    
+    currentSeq_ = QKeySequence::fromString(processedKeyText);
+    Logger::log(QString("Original key text: '%1'").arg(keyText));
+    if (processedKeyText != keyText) {
+        Logger::log(QString("Processed key text: '%1'").arg(processedKeyText));
+    }
     Logger::log(QString("Parsed key sequence: '%1' (count: %2)").arg(currentSeq_.toString()).arg(currentSeq_.count()));
     
     if (currentSeq_.isEmpty()) {
@@ -281,10 +300,27 @@ void MainWindow::applySettings() {
     // Log the individual keys in the sequence
     for (int i = 0; i < currentSeq_.count(); ++i) {
         QKeyCombination key = currentSeq_[i];
-        Logger::log(QString("Key %1: 0x%2").arg(i).arg(key.toCombined(), 0, 16));
+        int keyValue = key.toCombined();
+        Logger::log(QString("Key %1: 0x%2").arg(i).arg(keyValue, 0, 16));
+        
+        // Debug modifier detection
+        QString modifiers;
+        if (keyValue & Qt::ControlModifier) modifiers += "Ctrl ";
+        if (keyValue & Qt::AltModifier) modifiers += "Alt ";
+        if (keyValue & Qt::ShiftModifier) modifiers += "Shift ";
+        if (keyValue & Qt::MetaModifier) modifiers += "Meta(Win) ";
+        Logger::log(QString("Key %1 modifiers: %2").arg(i).arg(modifiers.trimmed()));
+        
+        int baseKey = keyValue & ~Qt::KeyboardModifierMask;
+        Logger::log(QString("Key %1 base key: 0x%2").arg(i).arg(baseKey, 0, 16));
     }
     
-    // Save settings
+    // Save the processed hotkey to settings
+    QString validHotkeyString = currentSeq_.toString();
+    settingsManager_.setHotkey(validHotkeyString);
+    Logger::log(QString("Saving processed hotkey to settings: '%1'").arg(validHotkeyString));
+    
+    // Save other settings
     saveSettings();
     
     registerHotkey();
@@ -950,7 +986,7 @@ void MainWindow::showHotkeyInfo() {
         "<li><b>Ctrl</b> - Control key</li>"
         "<li><b>Alt</b> - Alt key</li>"
         "<li><b>Shift</b> - Shift key</li>"
-        "<li><b>Win</b> - Windows key (Meta key)</li>"
+        "<li><b>Win</b> or <b>Meta</b> - Windows key (both formats work)</li>"
         "</ul>"
         
         "<h4>Supported Keys:</h4>"
@@ -965,8 +1001,8 @@ void MainWindow::showHotkeyInfo() {
         "<h4>Format Examples:</h4>"
         "<ul>"
         "<li><b>Single key:</b> F1, F16, A, Space</li>"
-        "<li><b>One modifier:</b> Ctrl+F1, Alt+M, Shift+A</li>"
-        "<li><b>Two modifiers:</b> Ctrl+Alt+F1, Shift+Win+A</li>"
+        "<li><b>One modifier:</b> Ctrl+F1, Alt+M, Shift+A, Win+F1</li>"
+        "<li><b>Two modifiers:</b> Ctrl+Alt+F1, Shift+Win+A, Ctrl+Win+F2</li>"
         "<li><b>Three modifiers:</b> Ctrl+Alt+Shift+F1, Ctrl+Win+Alt+F2</li>"
         "<li><b>All modifiers:</b> Ctrl+Alt+Shift+Win+F1</li>"
         "</ul>"

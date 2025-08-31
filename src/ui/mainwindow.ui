@@ -37,7 +37,7 @@
           <item>
            <widget class="QLineEdit" name="hotkeyEdit">
             <property name="placeholderText">
-             <string>e.g., Ctrl+F1, Alt+M, Ctrl+Win+F2, Shift+Alt+F16</string>
+             <string>e.g., Ctrl+F1, Alt+M, Ctrl+Win+F2, Win+F16</string>
             </property>
            </widget>
           </item>

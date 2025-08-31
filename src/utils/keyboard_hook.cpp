@@ -61,6 +61,14 @@ void KeyboardHook::setHotkey(const QKeySequence& sequence) {
                     .arg(sequence.toString())
                     .arg(hotkeyData_.virtualKey, 0, 16)
                     .arg(hotkeyData_.modifiers, 0, 16));
+        
+        // Log which modifiers are detected
+        QString modifierList;
+        if (hotkeyData_.modifiers & MOD_CONTROL) modifierList += "CTRL ";
+        if (hotkeyData_.modifiers & MOD_ALT) modifierList += "ALT ";
+        if (hotkeyData_.modifiers & MOD_SHIFT) modifierList += "SHIFT ";
+        if (hotkeyData_.modifiers & MOD_WIN) modifierList += "WIN ";
+        Logger::log(QString("Hook modifiers detected: %1").arg(modifierList.trimmed()));
     } else {
         Logger::log(QString("Invalid hotkey for hook: %1").arg(sequence.toString()));
     }
