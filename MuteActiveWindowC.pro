@@ -15,7 +15,8 @@ SOURCES += \
     src/config/settings_manager.cpp \
     src/utils/process_selection_dialog.cpp \
     src/utils/theme_manager.cpp \
-    src/utils/update_manager.cpp
+    src/utils/update_manager.cpp \
+    src/utils/keyboard_hook.cpp
 
 HEADERS += \
     src/core/mainwindow.h \
@@ -25,7 +26,8 @@ HEADERS += \
     src/config/settings_manager.h \
     src/utils/process_selection_dialog.h \
     src/utils/theme_manager.h \
-    src/utils/update_manager.h
+    src/utils/update_manager.h \
+    src/utils/keyboard_hook.h
 
 FORMS += \
     src/ui/mainwindow.ui

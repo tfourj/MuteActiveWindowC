@@ -15,6 +15,7 @@
 #include "update_manager.h"
 #include "ui_mainwindow.h"
 #include "process_selection_dialog.h"
+#include "keyboard_hook.h"
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -55,10 +56,12 @@ private slots:
     void clearProcesses();
     void saveProcesses();
     void onDarkModeChanged();
+    void onUseHookChanged();
     void checkForUpdates();
 
 private:
     void registerHotkey();
+    void registerHotkeyNormal();
     void unregisterHotkey();
     void onHotkeyTriggered();
     void populateDeviceList();

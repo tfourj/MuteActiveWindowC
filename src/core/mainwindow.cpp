@@ -38,6 +38,7 @@
 #include <QClipboard>
 #include <QSizePolicy>
 #include "update_manager.h"
+#include "keyboard_hook.h"
 
 static const QString VERSION = QString(APP_VERSION);
 static constexpr int HOTKEY_ID = 0xBEEF;
@@ -76,6 +77,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->showNotificationsCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->autoUpdateCheckBox, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->darkModeCheck, &QCheckBox::toggled, this, &MainWindow::onDarkModeChanged);
+    connect(ui->useHookCheck, &QCheckBox::toggled, this, &MainWindow::onUseHookChanged);
+    
+    // Connect keyboard hook signal
+    connect(&KeyboardHook::instance(), &KeyboardHook::hotkeyTriggered, this, &MainWindow::onHotkeyTriggered);
     
     // Setup system tray
     setupSystemTray();
@@ -189,6 +194,11 @@ void MainWindow::loadSettings() {
     ui->autoUpdateCheckBox->setChecked(autoUpdateCheck);
     Logger::log(QString("Loaded auto-update check setting: %1").arg(autoUpdateCheck ? "enabled" : "disabled"));
     
+    // Load use hook setting
+    bool useHook = settingsManager_.getUseHook();
+    ui->useHookCheck->setChecked(useHook);
+    Logger::log(QString("Loaded use hook setting: %1").arg(useHook ? "enabled" : "disabled"));
+    
     // Load dark mode setting
     bool darkMode = settingsManager_.getDarkMode();
     ui->darkModeCheck->setChecked(darkMode);
@@ -227,6 +237,9 @@ void MainWindow::saveSettings() {
     
     // Save auto-update check setting
     settingsManager_.setAutoUpdateCheck(ui->autoUpdateCheckBox->isChecked());
+    
+    // Save use hook setting
+    settingsManager_.setUseHook(ui->useHookCheck->isChecked());
     
     // Save dark mode setting
     settingsManager_.setDarkMode(ui->darkModeCheck->isChecked());
@@ -293,6 +306,25 @@ void MainWindow::registerHotkey() {
         return;
     }
     
+    // Check if we should use hook-based detection
+    bool useHook = settingsManager_.getUseHook();
+    
+    if (useHook) {
+        Logger::log("Using hook-based hotkey detection");
+        KeyboardHook::instance().setHotkey(currentSeq_);
+        if (KeyboardHook::instance().installHook()) {
+            Logger::log(QString("Hotkey hook registered successfully: %1").arg(currentSeq_.toString()));
+        } else {
+            Logger::log("Failed to install keyboard hook, falling back to RegisterHotKey");
+            registerHotkeyNormal();
+        }
+    } else {
+        Logger::log("Using normal RegisterHotKey hotkey detection");
+        registerHotkeyNormal();
+    }
+}
+
+void MainWindow::registerHotkeyNormal() {
     // Check if window handle is valid
     HWND hwnd = (HWND)winId();
     if (!hwnd) {
@@ -397,6 +429,13 @@ void MainWindow::registerHotkey() {
 }
 
 void MainWindow::unregisterHotkey() {
+    // Uninstall keyboard hook if it was installed
+    if (KeyboardHook::instance().isHookInstalled()) {
+        Logger::log("Uninstalling keyboard hook");
+        KeyboardHook::instance().uninstallHook();
+    }
+    
+    // Also try to unregister normal hotkey in case it was registered
     if (!UnregisterHotKey((HWND)winId(), hotkeyId_)) {
         DWORD error = GetLastError();
         if (error != ERROR_FILE_NOT_FOUND) { // This error is expected if hotkey wasn't registered
@@ -879,6 +918,18 @@ void MainWindow::onDarkModeChanged() {
     settingsManager_.setDarkMode(darkMode);
     ThemeManager::instance().applyTheme(darkMode);
     Logger::log(QString("Dark mode changed to: %1").arg(darkMode ? "enabled" : "disabled"));
+}
+
+void MainWindow::onUseHookChanged() {
+    bool useHook = ui->useHookCheck->isChecked();
+    settingsManager_.setUseHook(useHook);
+    
+    // Re-register hotkey with new setting
+    Logger::log(QString("Use hook setting changed to: %1 - re-registering hotkey").arg(useHook ? "enabled" : "disabled"));
+    unregisterHotkey();
+    registerHotkey();
+    
+    Logger::log(QString("Use hook changed to: %1").arg(useHook ? "enabled" : "disabled"));
 }
 
 void MainWindow::checkForUpdates() {

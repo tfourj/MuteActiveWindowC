@@ -50,6 +50,19 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="useHookCheck">
+          <property name="toolTip">
+           <string>Use low-level keyboard hook for hotkey detection. Enable this if hotkeys are not working in games or full-screen applications.</string>
+          </property>
+          <property name="text">
+           <string>Use hook for hotkey detection (fixes games)</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="applyButton">
           <property name="text">
            <string>Apply Settings</string>
