@@ -6,10 +6,18 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QStyleFactory>
+#include <QSharedMemory>
+#include <QMessageBox>
 
 int main(int argc, char *argv[])
 {   
     QApplication a(argc, argv);
+
+    QSharedMemory sharedMemory("MuteActiveWindowC_SingleInstanceGuard");
+    if (!sharedMemory.create(1)) {
+        QMessageBox::warning(nullptr, "MuteActiveWindowC", "Another instance of MuteActiveWindowC is already running.\n\nPlease close the other instance and try again.");
+        return 0;
+    }
     
     // Set application icon
     QString iconPath = ":/src/assets/maw.png";

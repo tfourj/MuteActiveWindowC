@@ -89,6 +89,12 @@ void SettingsManager::migrateSettings() {
         Logger::log("Added missing setting 'autoUpdateCheck' with default value: true");
     }
     
+    if (!config_.contains("useHook")) {
+        config_.setUseHook(false); // Default to normal hotkey registration
+        needsSave = true;
+        Logger::log("Added missing setting 'useHook' with default value: false");
+    }
+    
     if (needsSave) {
         config_.save();
         Logger::log("Settings migration completed - new defaults applied");
@@ -127,6 +133,10 @@ bool SettingsManager::getShowNotifications() const {
 
 bool SettingsManager::getAutoUpdateCheck() const {
     return config_.getAutoUpdateCheck();
+}
+
+bool SettingsManager::getUseHook() const {
+    return config_.getUseHook();
 }
 
 QStringList SettingsManager::getExcludedDevices() const {
@@ -175,6 +185,11 @@ void SettingsManager::setShowNotifications(bool enabled) {
 
 void SettingsManager::setAutoUpdateCheck(bool enabled) {
     config_.setAutoUpdateCheck(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setUseHook(bool enabled) {
+    config_.setUseHook(enabled);
     emit settingsChanged();
 }
 

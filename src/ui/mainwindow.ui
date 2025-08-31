@@ -18,7 +18,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>3</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="hotkeyTab">
        <attribute name="title">
@@ -33,11 +33,31 @@
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="hotkeyEdit">
-          <property name="placeholderText">
-           <string>e.g., Ctrl+F1, Alt+M, Shift+F2, F16</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="hotkeyInputLayout">
+          <item>
+           <widget class="QLineEdit" name="hotkeyEdit">
+            <property name="placeholderText">
+             <string>e.g., Ctrl+F1, Alt+M, Ctrl+Win+F2, Win+F16</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="hotkeyInfoButton">
+            <property name="maximumSize">
+             <size>
+              <width>30</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Show information about supported hotkey formats and modifier keys</string>
+            </property>
+            <property name="text">
+             <string>?</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
          <widget class="QCheckBox" name="mainProcessOnlyCheck">
@@ -46,6 +66,19 @@
           </property>
           <property name="text">
            <string>Mute directly by PID</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="useHookCheck">
+          <property name="toolTip">
+           <string>Use low-level keyboard hook for hotkey detection. Enable this if hotkeys are not working in games or full-screen applications.</string>
+          </property>
+          <property name="text">
+           <string>Use hook for hotkey detection (fixes games)</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
           </property>
          </widget>
         </item>

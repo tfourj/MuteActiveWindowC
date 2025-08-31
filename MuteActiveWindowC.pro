@@ -15,7 +15,8 @@ SOURCES += \
     src/config/settings_manager.cpp \
     src/utils/process_selection_dialog.cpp \
     src/utils/theme_manager.cpp \
-    src/utils/update_manager.cpp
+    src/utils/update_manager.cpp \
+    src/utils/keyboard_hook.cpp
 
 HEADERS += \
     src/core/mainwindow.h \
@@ -25,7 +26,8 @@ HEADERS += \
     src/config/settings_manager.h \
     src/utils/process_selection_dialog.h \
     src/utils/theme_manager.h \
-    src/utils/update_manager.h
+    src/utils/update_manager.h \
+    src/utils/keyboard_hook.h
 
 FORMS += \
     src/ui/mainwindow.ui
@@ -45,14 +47,20 @@ win32 {
 
 # Application name and version
 TARGET = MuteActiveWindowC
-VERSION = 1.3.0
+VERSION = 2.0.0
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 
 # Auto-deploy after build (Release only)
 win32:CONFIG(release, release|debug) {
     QMAKE_POST_LINK = $$(QTDIR)/bin/windeployqt.exe $$shell_quote($$OUT_PWD/release/$$shell_quote($$TARGET).exe) --no-compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw && \
-    cmd /c "$$PWD\\clean_release.bat" "$$OUT_PWD\\release" && \
-    cmd /c "$$PWD\\installer\\create_installer.bat" "$$OUT_PWD\\release" "$$shell_quote($$VERSION)"
+    cmd /c "$$PWD\\clean_release.bat" "$$OUT_PWD\\release"
+    
+    # Run user post-deploy script if it exists
+    exists($$PWD/installer/user_post_deploy.bat) {
+        QMAKE_POST_LINK += && cmd /c "$$PWD\\installer\\user_post_deploy.bat" "$$OUT_PWD\\release" "$$shell_quote($$VERSION)"
+    } else {
+        QMAKE_POST_LINK += && cmd /c "$$PWD\\installer\\create_installer.bat" "$$OUT_PWD\\release" "$$shell_quote($$VERSION)"
+    }
 }
 
 # Windows executable properties

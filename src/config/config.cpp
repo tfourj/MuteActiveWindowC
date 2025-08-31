@@ -58,7 +58,32 @@ void Config::setExcludedProcesses(const QStringList& processes) {
 }
 
 bool Config::isProcessExcluded(const QString& process) const {
-    return getExcludedProcesses().contains(process, Qt::CaseInsensitive);
+    QStringList excludedProcesses = getExcludedProcesses();
+    
+    // Check exact match first
+    if (excludedProcesses.contains(process, Qt::CaseInsensitive)) {
+        return true;
+    }
+    
+    // Check normalized match (remove .exe extension if present)
+    QString normalizedProcess = process;
+    if (normalizedProcess.endsWith(".exe", Qt::CaseInsensitive)) {
+        normalizedProcess = normalizedProcess.left(normalizedProcess.length() - 4);
+    }
+    
+    // Check if normalized process name is in the exclusion list
+    for (const QString& excluded : excludedProcesses) {
+        QString normalizedExcluded = excluded;
+        if (normalizedExcluded.endsWith(".exe", Qt::CaseInsensitive)) {
+            normalizedExcluded = normalizedExcluded.left(normalizedExcluded.length() - 4);
+        }
+        
+        if (normalizedProcess.compare(normalizedExcluded, Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 bool Config::getMainProcessOnly() const {
@@ -124,6 +149,15 @@ void Config::setAutoUpdateCheck(bool enabled) {
     Logger::log(QString("Auto-update check setting saved: %1").arg(enabled ? "enabled" : "disabled"));
 }
 
+bool Config::getUseHook() const {
+    return settings_.value("useHook", false).toBool(); // Default to false (normal hotkey registration)
+}
+
+void Config::setUseHook(bool enabled) {
+    settings_.setValue("useHook", enabled);
+    Logger::log(QString("Use hook setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
 void Config::save() {
     settings_.sync();
     Logger::log("All settings saved to registry");
@@ -138,6 +172,7 @@ void Config::save() {
     Logger::log(QString("  Dark mode: %1").arg(getDarkMode() ? "enabled" : "disabled"));
     Logger::log(QString("  Show notifications: %1").arg(getShowNotifications() ? "enabled" : "disabled"));
     Logger::log(QString("  Auto-update check: %1").arg(getAutoUpdateCheck() ? "enabled" : "disabled"));
+    Logger::log(QString("  Use hook: %1").arg(getUseHook() ? "enabled" : "disabled"));
     Logger::log(QString("  Excluded devices: %1").arg(getExcludedDevices().join(", ")));
     Logger::log(QString("  Excluded processes: %1").arg(getExcludedProcesses().join(", ")));
 }

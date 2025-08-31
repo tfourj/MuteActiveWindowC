@@ -38,6 +38,7 @@
 #include <QClipboard>
 #include <QSizePolicy>
 #include "update_manager.h"
+#include "keyboard_hook.h"
 
 static const QString VERSION = QString(APP_VERSION);
 static constexpr int HOTKEY_ID = 0xBEEF;
@@ -68,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->clearProcessesButton, &QPushButton::clicked, this, &MainWindow::clearProcesses);
     connect(ui->saveProcessesButton, &QPushButton::clicked, this, &MainWindow::saveProcesses);
     connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &MainWindow::checkForUpdates);
+    connect(ui->hotkeyInfoButton, &QPushButton::clicked, this, &MainWindow::showHotkeyInfo);
     
     // Connect settings checkboxes to auto-save
     connect(ui->startupCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
@@ -76,6 +78,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->showNotificationsCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->autoUpdateCheckBox, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->darkModeCheck, &QCheckBox::toggled, this, &MainWindow::onDarkModeChanged);
+    connect(ui->useHookCheck, &QCheckBox::toggled, this, &MainWindow::onUseHookChanged);
+    
+    // Connect keyboard hook signal
+    connect(&KeyboardHook::instance(), &KeyboardHook::hotkeyTriggered, this, &MainWindow::onHotkeyTriggered);
     
     // Setup system tray
     setupSystemTray();
@@ -157,8 +163,17 @@ void MainWindow::loadSettings() {
     // Load hotkey
     QString hotkey = settingsManager_.getHotkey();
     currentSeq_ = QKeySequence::fromString(hotkey);
-    ui->hotkeyEdit->setText(currentSeq_.toString());
-    Logger::log(QString("Loaded hotkey from settings: '%1'").arg(currentSeq_.toString()));
+    
+    // Convert "Meta" back to "Win" for user-friendly display
+    QString displayText = currentSeq_.toString();
+    displayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
+    displayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
+    if (displayText == "Meta") {
+        displayText = "Win";
+    }
+    
+    ui->hotkeyEdit->setText(displayText);
+    Logger::log(QString("Loaded hotkey from settings: '%1' (displayed as: '%2')").arg(currentSeq_.toString()).arg(displayText));
     
     // Load main process only setting
     bool mainProcessOnly = settingsManager_.getMainProcessOnly();
@@ -189,6 +204,11 @@ void MainWindow::loadSettings() {
     ui->autoUpdateCheckBox->setChecked(autoUpdateCheck);
     Logger::log(QString("Loaded auto-update check setting: %1").arg(autoUpdateCheck ? "enabled" : "disabled"));
     
+    // Load use hook setting
+    bool useHook = settingsManager_.getUseHook();
+    ui->useHookCheck->setChecked(useHook);
+    Logger::log(QString("Loaded use hook setting: %1").arg(useHook ? "enabled" : "disabled"));
+    
     // Load dark mode setting
     bool darkMode = settingsManager_.getDarkMode();
     ui->darkModeCheck->setChecked(darkMode);
@@ -206,11 +226,9 @@ void MainWindow::loadSettings() {
 }
 
 void MainWindow::saveSettings() {
-    // Save hotkey
-    QString hotkeyText = ui->hotkeyEdit->text().trimmed();
-    if (!hotkeyText.isEmpty()) {
-        settingsManager_.setHotkey(hotkeyText);
-    }
+    // Don't save hotkey here - it should only be saved through applySettings()
+    // This function is called when checkboxes change, and we shouldn't save
+    // potentially unprocessed hotkey text from the UI field
     
     // Save main process only setting
     settingsManager_.setMainProcessOnly(ui->mainProcessOnlyCheck->isChecked());
@@ -227,6 +245,9 @@ void MainWindow::saveSettings() {
     
     // Save auto-update check setting
     settingsManager_.setAutoUpdateCheck(ui->autoUpdateCheckBox->isChecked());
+    
+    // Save use hook setting
+    settingsManager_.setUseHook(ui->useHookCheck->isChecked());
     
     // Save dark mode setting
     settingsManager_.setDarkMode(ui->darkModeCheck->isChecked());
@@ -255,7 +276,19 @@ void MainWindow::applySettings() {
         return;
     }
     
-    currentSeq_ = QKeySequence::fromString(keyText);
+    // Preprocess the key text to convert "Win" to "Meta" for Qt compatibility
+    QString processedKeyText = keyText;
+    processedKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
+    processedKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
+    if (processedKeyText == "Win") {
+        processedKeyText = "Meta";
+    }
+    
+    currentSeq_ = QKeySequence::fromString(processedKeyText);
+    Logger::log(QString("Original key text: '%1'").arg(keyText));
+    if (processedKeyText != keyText) {
+        Logger::log(QString("Processed key text: '%1'").arg(processedKeyText));
+    }
     Logger::log(QString("Parsed key sequence: '%1' (count: %2)").arg(currentSeq_.toString()).arg(currentSeq_.count()));
     
     if (currentSeq_.isEmpty()) {
@@ -267,10 +300,27 @@ void MainWindow::applySettings() {
     // Log the individual keys in the sequence
     for (int i = 0; i < currentSeq_.count(); ++i) {
         QKeyCombination key = currentSeq_[i];
-        Logger::log(QString("Key %1: 0x%2").arg(i).arg(key.toCombined(), 0, 16));
+        int keyValue = key.toCombined();
+        Logger::log(QString("Key %1: 0x%2").arg(i).arg(keyValue, 0, 16));
+        
+        // Debug modifier detection
+        QString modifiers;
+        if (keyValue & Qt::ControlModifier) modifiers += "Ctrl ";
+        if (keyValue & Qt::AltModifier) modifiers += "Alt ";
+        if (keyValue & Qt::ShiftModifier) modifiers += "Shift ";
+        if (keyValue & Qt::MetaModifier) modifiers += "Meta(Win) ";
+        Logger::log(QString("Key %1 modifiers: %2").arg(i).arg(modifiers.trimmed()));
+        
+        int baseKey = keyValue & ~Qt::KeyboardModifierMask;
+        Logger::log(QString("Key %1 base key: 0x%2").arg(i).arg(baseKey, 0, 16));
     }
     
-    // Save settings
+    // Save the processed hotkey to settings
+    QString validHotkeyString = currentSeq_.toString();
+    settingsManager_.setHotkey(validHotkeyString);
+    Logger::log(QString("Saving processed hotkey to settings: '%1'").arg(validHotkeyString));
+    
+    // Save other settings
     saveSettings();
     
     registerHotkey();
@@ -293,6 +343,25 @@ void MainWindow::registerHotkey() {
         return;
     }
     
+    // Check if we should use hook-based detection
+    bool useHook = settingsManager_.getUseHook();
+    
+    if (useHook) {
+        Logger::log("Using hook-based hotkey detection");
+        KeyboardHook::instance().setHotkey(currentSeq_);
+        if (KeyboardHook::instance().installHook()) {
+            Logger::log(QString("Hotkey hook registered successfully: %1").arg(currentSeq_.toString()));
+        } else {
+            Logger::log("Failed to install keyboard hook, falling back to RegisterHotKey");
+            registerHotkeyNormal();
+        }
+    } else {
+        Logger::log("Using normal RegisterHotKey hotkey detection");
+        registerHotkeyNormal();
+    }
+}
+
+void MainWindow::registerHotkeyNormal() {
     // Check if window handle is valid
     HWND hwnd = (HWND)winId();
     if (!hwnd) {
@@ -397,6 +466,13 @@ void MainWindow::registerHotkey() {
 }
 
 void MainWindow::unregisterHotkey() {
+    // Uninstall keyboard hook if it was installed
+    if (KeyboardHook::instance().isHookInstalled()) {
+        Logger::log("Uninstalling keyboard hook");
+        KeyboardHook::instance().uninstallHook();
+    }
+    
+    // Also try to unregister normal hotkey in case it was registered
     if (!UnregisterHotKey((HWND)winId(), hotkeyId_)) {
         DWORD error = GetLastError();
         if (error != ERROR_FILE_NOT_FOUND) { // This error is expected if hotkey wasn't registered
@@ -561,7 +637,132 @@ void MainWindow::onHotkeyTriggered() {
 
 void MainWindow::testHotkey() {
     Logger::log("=== Test Hotkey Button Pressed ===");
-    onHotkeyTriggered();
+    simulateHotkeyInSelectedApp();
+}
+
+void MainWindow::simulateHotkeyInSelectedApp() {
+    Logger::log("=== Simulate Hotkey in Selected App ===");
+    
+    // Show process selection dialog
+    ProcessSelectionDialog dialog(ProcessSelectionDialog::SimulationMode, this);
+    if (dialog.exec() != QDialog::Accepted) {
+        Logger::log("Process selection cancelled by user");
+        return;
+    }
+    
+    QString selectedProcess = dialog.getSelectedProcess();
+    DWORD selectedPID = dialog.getSelectedPID();
+    
+    if (selectedProcess.isEmpty() || selectedPID == 0) {
+        Logger::log("No valid process selected");
+        return;
+    }
+    
+    Logger::log(QString("User selected process: %1 (PID: %2)").arg(selectedProcess).arg(selectedPID));
+    
+    // Find the main window of the selected process (more flexible approach)
+    HWND targetWindow = nullptr;
+    DWORD data[3] = {selectedPID, 0, 0}; // PID, HWND, best score
+    
+    // First pass: look for the best window
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        DWORD* dataArray = reinterpret_cast<DWORD*>(lParam);
+        DWORD targetPID = dataArray[0];
+        DWORD windowPID = 0;
+        
+        GetWindowThreadProcessId(hwnd, &windowPID);
+        
+        if (windowPID == targetPID) {
+            if (IsWindowVisible(hwnd)) {
+                char title[256] = {0};
+                int titleLen = GetWindowTextA(hwnd, title, sizeof(title));
+                
+                // Calculate window "score" for best match
+                int score = 0;
+                
+                // Prefer windows with titles
+                if (titleLen > 0) score += 10;
+                
+                // Prefer main windows (no owner)
+                if (GetWindow(hwnd, GW_OWNER) == nullptr) score += 20;
+                
+                // Prefer windows that are not minimized
+                if (!IsIconic(hwnd)) score += 5;
+                
+                // Prefer larger windows
+                RECT rect;
+                if (GetWindowRect(hwnd, &rect)) {
+                    int area = (rect.right - rect.left) * (rect.bottom - rect.top);
+                    if (area > 10000) score += 3; // Decent size window
+                }
+                
+                // Check window class for common app window types
+                char className[256] = {0};
+                if (GetClassNameA(hwnd, className, sizeof(className)) > 0) {
+                    QString classStr = QString::fromLatin1(className);
+                    if (classStr.contains("Chrome", Qt::CaseInsensitive) ||
+                        classStr.contains("Mozilla", Qt::CaseInsensitive) ||
+                        classStr.contains("Spotify", Qt::CaseInsensitive) ||
+                        classStr.contains("Qt", Qt::CaseInsensitive) ||
+                        classStr.contains("Application", Qt::CaseInsensitive)) {
+                        score += 15;
+                    }
+                }
+                
+                // Update if this is the best window so far
+                if (score > static_cast<int>(dataArray[2])) {
+                    dataArray[1] = reinterpret_cast<DWORD>(hwnd);
+                    dataArray[2] = score;
+                }
+            }
+        }
+        return TRUE; // Continue enumeration to find the best window
+    }, reinterpret_cast<LPARAM>(data));
+    
+    targetWindow = reinterpret_cast<HWND>(data[1]);
+    
+    if (!targetWindow) {
+        Logger::log(QString("Could not find main window for process %1 (PID: %2)").arg(selectedProcess).arg(selectedPID));
+        return;
+    }
+    
+    // Log details about the selected window
+    char windowTitle[256] = {0};
+    char className[256] = {0};
+    GetWindowTextA(targetWindow, windowTitle, sizeof(windowTitle));
+    GetClassNameA(targetWindow, className, sizeof(className));
+    Logger::log(QString("Selected window: '%1' (Class: %2, Score: %3)")
+               .arg(QString::fromLatin1(windowTitle))
+               .arg(QString::fromLatin1(className))
+               .arg(data[2]));
+    
+    // Focus the target application
+    Logger::log(QString("Focusing window: 0x%1").arg(reinterpret_cast<quintptr>(targetWindow), 0, 16));
+    
+    // Use a more robust method to bring window to foreground
+    if (IsIconic(targetWindow)) {
+        ShowWindow(targetWindow, SW_RESTORE);
+    }
+    
+    SetForegroundWindow(targetWindow);
+    BringWindowToTop(targetWindow);
+    
+    // Wait a bit for the window to be focused
+    Sleep(200);
+    
+    // Verify the window is now in foreground
+    HWND currentFG = GetForegroundWindow();
+    if (currentFG == targetWindow) {
+        Logger::log("Successfully focused target application");
+        
+        // Now simulate the hotkey on this specific application
+        Logger::log("Simulating hotkey on focused application");
+        onHotkeyTriggered();
+    } else {
+        Logger::log(QString("Failed to focus target application. Current FG: 0x%1, Target: 0x%2")
+                   .arg(reinterpret_cast<quintptr>(currentFG), 0, 16)
+                   .arg(reinterpret_cast<quintptr>(targetWindow), 0, 16));
+    }
 }
 
 void MainWindow::populateDeviceList() {
@@ -805,7 +1006,7 @@ void MainWindow::quitApplication() {
 }
 
 void MainWindow::addCurrentProcess() {
-    ProcessSelectionDialog dialog(this);
+    ProcessSelectionDialog dialog(ProcessSelectionDialog::ExclusionMode, this);
     
     if (dialog.exec() == QDialog::Accepted) {
         QString processName = dialog.getSelectedProcess();
@@ -881,10 +1082,71 @@ void MainWindow::onDarkModeChanged() {
     Logger::log(QString("Dark mode changed to: %1").arg(darkMode ? "enabled" : "disabled"));
 }
 
+void MainWindow::onUseHookChanged() {
+    bool useHook = ui->useHookCheck->isChecked();
+    settingsManager_.setUseHook(useHook);
+    
+    // Re-register hotkey with new setting
+    Logger::log(QString("Use hook setting changed to: %1 - re-registering hotkey").arg(useHook ? "enabled" : "disabled"));
+    unregisterHotkey();
+    registerHotkey();
+    
+    Logger::log(QString("Use hook changed to: %1").arg(useHook ? "enabled" : "disabled"));
+}
+
 void MainWindow::checkForUpdates() {
     Logger::log("=== Check for Updates Button Pressed ===");
     // Use the UpdateManager to handle the update check
     UpdateManager::instance().checkForUpdates(true);
     // Show a brief status message
     statusBar()->showMessage("Update checker launched", 2000);
+}
+
+void MainWindow::showHotkeyInfo() {
+    QString infoText = 
+        "<h3>Hotkey Format Information</h3>"
+        
+        "<h4>Modifier Keys:</h4>"
+        "<ul>"
+        "<li><b>Ctrl</b> - Control key</li>"
+        "<li><b>Alt</b> - Alt key</li>"
+        "<li><b>Shift</b> - Shift key</li>"
+        "<li><b>Win</b> or <b>Meta</b> - Windows key (both formats work)</li>"
+        "</ul>"
+        
+        "<h4>Supported Keys:</h4>"
+        "<ul>"
+        "<li><b>Function Keys:</b> F1, F2, F3, ... F24</li>"
+        "<li><b>Letters:</b> A, B, C, ... Z</li>"
+        "<li><b>Numbers:</b> 0, 1, 2, ... 9</li>"
+        "<li><b>Special Keys:</b> Space, Tab, Return, Escape, Backspace, Delete, Insert, Home, End, PageUp, PageDown</li>"
+        "<li><b>Arrow Keys:</b> Left, Right, Up, Down</li>"
+        "</ul>"
+        
+        "<h4>Format Examples:</h4>"
+        "<ul>"
+        "<li><b>Single key:</b> F1, F16, A, Space</li>"
+        "<li><b>One modifier:</b> Ctrl+F1, Alt+M, Shift+A, Win+F1</li>"
+        "<li><b>Two modifiers:</b> Ctrl+Alt+F1, Shift+Win+A, Ctrl+Win+F2</li>"
+        "<li><b>Three modifiers:</b> Ctrl+Alt+Shift+F1, Ctrl+Win+Alt+F2</li>"
+        "<li><b>All modifiers:</b> Ctrl+Alt+Shift+Win+F1</li>"
+        "</ul>"
+        
+        "<h4>Tips:</h4>"
+        "<ul>"
+        "<li>Use <b>hook detection</b> if hotkeys don't work in games</li>"
+        "<li>Function keys (F13-F24) are rarely used and work well</li>"
+        "<li>Avoid common system shortcuts (Ctrl+C, Alt+Tab, etc.)</li>"
+        "<li>Test your hotkey with the <b>Test Hotkey</b> button</li>"
+        "</ul>";
+    
+    QMessageBox infoBox(this);
+    infoBox.setWindowTitle("Hotkey Information");
+    infoBox.setTextFormat(Qt::RichText);
+    infoBox.setText(infoText);
+    infoBox.setIcon(QMessageBox::Information);
+    infoBox.setStandardButtons(QMessageBox::Ok);
+    infoBox.exec();
+    
+    Logger::log("Displayed hotkey info dialog");
 }

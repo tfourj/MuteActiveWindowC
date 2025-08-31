@@ -49,6 +49,10 @@ public:
     bool getAutoUpdateCheck() const;
     void setAutoUpdateCheck(bool enabled);
     
+    // Hook-based hotkey settings
+    bool getUseHook() const;
+    void setUseHook(bool enabled);
+    
     // Check if setting exists
     bool contains(const QString& key) const;
     

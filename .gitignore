@@ -82,3 +82,4 @@ CMakeLists.txt.user*
 /build*/
 /installer/repository
 /installer/packages
+/installer/temp_installer
