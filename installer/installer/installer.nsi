@@ -2,6 +2,7 @@
 ; Use Modern UI 2
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!include "nsProcess.nsh"
 
 ;--------------------------------
 ; App details
@@ -80,10 +81,45 @@ Section "Main Application" SecMain
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 SectionEnd
 
+; Optional VC++ Redistributable Section (unchecked by default)
+Section /o "Microsoft Visual C++ Redistributable" SecVCRedist
+  DetailPrint "Downloading Microsoft Visual C++ Redistributable..."
+  
+  ; Download the VC++ redistributable to temp directory
+  NSISdl::download "https://aka.ms/vs/17/release/vc_redist.x64.exe" "$TEMP\vc_redist.x64.exe"
+  Pop $0 ; get the return value
+  
+  ; Check if download was successful
+  StrCmp $0 success download_success
+    MessageBox MB_ICONSTOP "Download failed: $0"
+    Goto download_end
+    
+  download_success:
+    DetailPrint "Installing Microsoft Visual C++ Redistributable..."
+    
+    ; Run the redistributable installer silently
+    ExecWait '"$TEMP\vc_redist.x64.exe" /install /passive /norestart' $0
+    
+    ; Check installation result
+    ${If} $0 == 0
+      DetailPrint "Microsoft Visual C++ Redistributable installed successfully"
+    ${ElseIf} $0 == 1638
+      DetailPrint "Microsoft Visual C++ Redistributable is already installed (newer or same version)"
+    ${Else}
+      DetailPrint "Microsoft Visual C++ Redistributable installation failed (Exit code: $0)"
+    ${EndIf}
+    
+    ; Clean up downloaded file
+    Delete "$TEMP\vc_redist.x64.exe"
+    
+  download_end:
+SectionEnd
+
 ;--------------------------------
 ; Section descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "Main MuteActiveWindowC application (required)."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecVCRedist} "Download and install Microsoft Visual C++ Redistributable (recommended for compatibility)."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;--------------------------------
