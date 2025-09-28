@@ -15,8 +15,10 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QProgressDialog>
+#include <QApplication>
+#include <QThread>
 
-UpdateManager::UpdateManager() : updateCheckerAvailable_(false), networkManager_(nullptr), currentReply_(nullptr) {
+UpdateManager::UpdateManager() : updateCheckerAvailable_(false), networkManager_(nullptr), currentReply_(nullptr), progressDialog_(nullptr) {
     updateAvailability();
     
     // Initialize network manager
@@ -84,6 +86,12 @@ void UpdateManager::checkForUpdates(bool triggeredByUser) {
 
 void UpdateManager::showUpdateCheckError(const QString& reason) {
     Logger::log("Showing update check error dialog: " + reason);
+    
+    // Hide progress dialog if it's showing during an error
+    if (progressDialog_) {
+        progressDialog_->hide();
+    }
+    
     QMessageBox::warning(nullptr, "Update Check Failed", QString("Failed to check for updates.\nReason: %1").arg(reason));
 }
 
@@ -360,25 +368,65 @@ void UpdateManager::downloadInstaller(const QString& downloadUrl) {
     request.setRawHeader("User-Agent", "MuteActiveWindowC-UpdateChecker");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     
+    // Create and show progress dialog
+    if (progressDialog_) {
+        progressDialog_->deleteLater();
+    }
+    
+    progressDialog_ = new QProgressDialog("Downloading update...", "Cancel", 0, 100, nullptr);
+    progressDialog_->setWindowTitle("Update Download");
+    progressDialog_->setWindowModality(Qt::ApplicationModal);
+    progressDialog_->setAutoClose(false);
+    progressDialog_->setAutoReset(false);
+    progressDialog_->setValue(0);
+    progressDialog_->show();
+    
+    // Connect progress dialog canceled signal
+    connect(progressDialog_, &QProgressDialog::canceled, this, &UpdateManager::onDownloadCanceled);
+    
     // Start download
     currentReply_ = networkManager_->get(request);
     connect(currentReply_, &QNetworkReply::finished, this, &UpdateManager::onDownloadFinished);
     connect(currentReply_, &QNetworkReply::downloadProgress, this, &UpdateManager::onDownloadProgress);
     
-    Logger::log(QString("Download started, saving to: %1").arg(downloadedInstallerPath_));
+    Logger::log(QString("Download started with progress dialog, saving to: %1").arg(downloadedInstallerPath_));
 }
 
 void UpdateManager::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal) {
     if (bytesTotal > 0) {
         int percentage = static_cast<int>((bytesReceived * 100) / bytesTotal);
         Logger::log(QString("Download progress: %1% (%2/%3 bytes)").arg(percentage).arg(bytesReceived).arg(bytesTotal));
+        
+        // Update progress dialog
+        if (progressDialog_ && !progressDialog_->wasCanceled()) {
+            progressDialog_->setValue(percentage);
+            
+            // Format file size display
+            QString receivedStr = formatFileSize(bytesReceived);
+            QString totalStr = formatFileSize(bytesTotal);
+            
+            progressDialog_->setLabelText(QString("Downloading update... %1%\n%2 of %3")
+                                        .arg(percentage)
+                                        .arg(receivedStr, totalStr));
+        }
     }
 }
 
 void UpdateManager::onDownloadFinished() {
+    // Hide progress dialog first
+    if (progressDialog_) {
+        progressDialog_->hide();
+    }
+    
     if (!currentReply_) {
         Logger::log("No current reply in onDownloadFinished");
         showUpdateCheckError("Download failed: No network reply");
+        return;
+    }
+    
+    // Check if download was canceled
+    if (progressDialog_ && progressDialog_->wasCanceled()) {
+        Logger::log("Download was canceled, ignoring finished signal");
         return;
     }
     
@@ -417,8 +465,23 @@ void UpdateManager::onDownloadFinished() {
     
     Logger::log(QString("Installer saved successfully: %1").arg(downloadedInstallerPath_));
     
+    // Show completion status in progress dialog briefly before running installer
+    if (progressDialog_) {
+        progressDialog_->setLabelText("Download complete! Starting installer...");
+        progressDialog_->setValue(100);
+        progressDialog_->setCancelButtonText("Close");
+        QApplication::processEvents(); // Allow UI to update
+        QThread::msleep(1000); // Show completion message for 1 second
+    }
+    
     // Run the installer
     runInstaller();
+    
+    // Clean up progress dialog after installer starts
+    if (progressDialog_) {
+        progressDialog_->deleteLater();
+        progressDialog_ = nullptr;
+    }
 }
 
 void UpdateManager::runInstaller() {
@@ -494,4 +557,44 @@ void UpdateManager::runInstaller() {
     }
     
     Logger::log("Installer process started successfully");
+}
+
+void UpdateManager::onDownloadCanceled() {
+    Logger::log("Download canceled by user");
+    
+    // Abort the current download
+    if (currentReply_) {
+        currentReply_->abort();
+        currentReply_->deleteLater();
+        currentReply_ = nullptr;
+    }
+    
+    // Clean up downloaded file if it exists
+    if (!downloadedInstallerPath_.isEmpty() && QFile::exists(downloadedInstallerPath_)) {
+        QFile::remove(downloadedInstallerPath_);
+        Logger::log("Cleaned up partially downloaded file");
+    }
+    
+    // Hide progress dialog
+    if (progressDialog_) {
+        progressDialog_->hide();
+    }
+    
+    QMessageBox::information(nullptr, "Download Canceled", "Update download was canceled by the user.");
+}
+
+QString UpdateManager::formatFileSize(qint64 bytes) const {
+    const qint64 KB = 1024;
+    const qint64 MB = KB * 1024;
+    const qint64 GB = MB * 1024;
+    
+    if (bytes >= GB) {
+        return QString("%1 GB").arg(static_cast<double>(bytes) / GB, 0, 'f', 2);
+    } else if (bytes >= MB) {
+        return QString("%1 MB").arg(static_cast<double>(bytes) / MB, 0, 'f', 1);
+    } else if (bytes >= KB) {
+        return QString("%1 KB").arg(static_cast<double>(bytes) / KB, 0, 'f', 1);
+    } else {
+        return QString("%1 bytes").arg(bytes);
+    }
 } 
