@@ -63,5 +63,7 @@ private:
     void openGitHubReleases();
     void showUpdateCheckError(const QString& reason);
     QString formatFileSize(qint64 bytes) const;
+    bool launchInstallerWithElevation(const QString& installerPath);
+    void showElevationPrompt();
     bool userInitiated_ = false;
 }; 

@@ -18,6 +18,12 @@
 #include <QApplication>
 #include <QThread>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <shellapi.h>
+#include <string>
+#endif
+
 UpdateManager::UpdateManager() : updateCheckerAvailable_(false), networkManager_(nullptr), currentReply_(nullptr), progressDialog_(nullptr) {
     updateAvailability();
     
@@ -526,13 +532,25 @@ void UpdateManager::runInstaller() {
     connect(installerProcess, &QProcess::errorOccurred,
             [this, installerProcess](QProcess::ProcessError error) {
         Logger::log(QString("Installer process error: %1").arg(error));
-        QMessageBox::warning(nullptr, "Installer Error", 
-            QString("Failed to launch the installer: %1").arg(installerProcess->errorString()));
+        QString errorString = installerProcess->errorString();
         
-        // Clean up downloaded file
-        if (QFile::exists(downloadedInstallerPath_)) {
-            QFile::remove(downloadedInstallerPath_);
-            Logger::log("Cleaned up downloaded installer file after error");
+        // Check if the error is due to elevation requirement
+        if (error == QProcess::FailedToStart && 
+            (errorString.contains("elevation", Qt::CaseInsensitive) || 
+             errorString.contains("administrator", Qt::CaseInsensitive) ||
+             errorString.contains("privileges", Qt::CaseInsensitive))) {
+            
+            Logger::log("Installer requires elevation, showing elevation prompt");
+            showElevationPrompt();
+        } else {
+            QMessageBox::warning(nullptr, "Installer Error", 
+                QString("Failed to launch the installer: %1").arg(errorString));
+            
+            // Clean up downloaded file
+            if (QFile::exists(downloadedInstallerPath_)) {
+                QFile::remove(downloadedInstallerPath_);
+                Logger::log("Cleaned up downloaded installer file after error");
+            }
         }
         
         installerProcess->deleteLater();
@@ -543,13 +561,25 @@ void UpdateManager::runInstaller() {
     
     if (!installerProcess->waitForStarted(5000)) {
         Logger::log("Failed to start installer process");
-        QMessageBox::warning(nullptr, "Installer Error", 
-            QString("Failed to start the installer: %1").arg(installerProcess->errorString()));
+        QString errorString = installerProcess->errorString();
         
-        // Clean up downloaded file
-        if (QFile::exists(downloadedInstallerPath_)) {
-            QFile::remove(downloadedInstallerPath_);
-            Logger::log("Cleaned up downloaded installer file after start failure");
+        // Check if the error is due to elevation requirement
+        if (errorString.contains("elevation", Qt::CaseInsensitive) || 
+            errorString.contains("administrator", Qt::CaseInsensitive) ||
+            errorString.contains("privileges", Qt::CaseInsensitive) ||
+            errorString.contains("requested operation requires elevation", Qt::CaseInsensitive)) {
+            
+            Logger::log("Installer requires elevation, showing elevation prompt");
+            showElevationPrompt();
+        } else {
+            QMessageBox::warning(nullptr, "Installer Error", 
+                QString("Failed to start the installer: %1").arg(errorString));
+            
+            // Clean up downloaded file
+            if (QFile::exists(downloadedInstallerPath_)) {
+                QFile::remove(downloadedInstallerPath_);
+                Logger::log("Cleaned up downloaded installer file after start failure");
+            }
         }
         
         installerProcess->deleteLater();
@@ -596,5 +626,81 @@ QString UpdateManager::formatFileSize(qint64 bytes) const {
         return QString("%1 KB").arg(static_cast<double>(bytes) / KB, 0, 'f', 1);
     } else {
         return QString("%1 bytes").arg(bytes);
+    }
+}
+
+bool UpdateManager::launchInstallerWithElevation(const QString& installerPath) {
+#ifdef Q_OS_WIN
+    Logger::log("Attempting to launch installer with elevation using ShellExecute");
+    
+    // Convert QString to wide string for Windows API
+    std::wstring winstallerPath = installerPath.toStdWString();
+    
+    // Use ShellExecute with "runas" to request elevation
+    HINSTANCE result = ShellExecuteW(
+        NULL,                   // Parent window handle
+        L"runas",              // Verb - "runas" requests elevation
+        winstallerPath.c_str(), // File to execute
+        NULL,                  // Parameters
+        NULL,                  // Working directory
+        SW_SHOWNORMAL          // Show command
+    );
+    
+    // ShellExecute returns a value > 32 on success
+    if (reinterpret_cast<uintptr_t>(result) > 32) {
+        Logger::log("Installer launched with elevation successfully");
+        return true;
+    } else {
+        DWORD error = GetLastError();
+        Logger::log(QString("Failed to launch installer with elevation. Error code: %1").arg(error));
+        
+        // Check for specific error codes
+        if (error == ERROR_CANCELLED || reinterpret_cast<uintptr_t>(result) == SE_ERR_ACCESSDENIED) {
+            Logger::log("User canceled elevation or access denied");
+            QMessageBox::warning(nullptr, "Elevation Canceled", 
+                "The installer requires administrator privileges, but elevation was canceled.\n\n"
+                "You can manually run the installer as administrator from:\n" + installerPath);
+        }
+        return false;
+    }
+#else
+    Q_UNUSED(installerPath)
+    Logger::log("Elevation not implemented for non-Windows platforms");
+    return false;
+#endif
+}
+
+void UpdateManager::showElevationPrompt() {
+    QMessageBox msgBox;
+    msgBox.setWindowTitle("Administrator Privileges Required");
+    msgBox.setText("The installer requires administrator privileges to update the application.");
+    msgBox.setInformativeText("Would you like to launch the installer with elevated privileges?\n\n"
+                             "You may be prompted by Windows User Account Control (UAC).");
+    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    msgBox.setDefaultButton(QMessageBox::Yes);
+    msgBox.setIcon(QMessageBox::Question);
+    
+    int result = msgBox.exec();
+    
+    if (result == QMessageBox::Yes) {
+        Logger::log("User agreed to elevation, launching installer with elevation");
+        if (!launchInstallerWithElevation(downloadedInstallerPath_)) {
+            // If elevated launch fails, show manual instructions
+            QMessageBox::information(nullptr, "Manual Installation Required",
+                QString("Automatic elevation failed. Please manually run the installer as administrator:\n\n%1\n\n"
+                       "Right-click the file and select 'Run as administrator'.")
+                       .arg(downloadedInstallerPath_));
+        } else {
+            // Success - show confirmation
+            QMessageBox::information(nullptr, "Update Started", 
+                QString("The installer for version %1 has been launched with administrator privileges.\n\n"
+                       "The current application may close during the update process.").arg(pendingVersion_));
+        }
+    } else {
+        Logger::log("User declined elevation");
+        QMessageBox::information(nullptr, "Manual Installation Required",
+            QString("To complete the update, please manually run the installer as administrator:\n\n%1\n\n"
+                   "Right-click the file and select 'Run as administrator'.")
+                   .arg(downloadedInstallerPath_));
     }
 } 
