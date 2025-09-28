@@ -57,8 +57,33 @@ REM === Copy NSIS script and license to temp directory ===
 set "TEMP_NSIS_SCRIPT=%INSTALLER_DIR%\installer.nsi"
 set "LICENSE_FILE=%SCRIPT_DIR%installer\license.txt"
 set "TEMP_LICENSE_FILE=%INSTALLER_DIR%\license.txt"
+set "VERSION_NSH_FILE=%INSTALLER_DIR%\version.nsh"
 copy "%NSIS_SCRIPT%" "%TEMP_NSIS_SCRIPT%"
 copy "%LICENSE_FILE%" "%TEMP_LICENSE_FILE%"
+
+REM === Generate version.nsh file from VERSION parameter ===
+echo [INFO] Generating version.nsh with version: %VERSION%
+
+REM Parse version string (e.g., "2.0.0" -> MAJOR=2, MINOR=0, BUILD=0)
+for /f "tokens=1,2,3 delims=." %%a in ("%VERSION%") do (
+    set "VERSION_MAJOR=%%a"
+    set "VERSION_MINOR=%%b"
+    set "VERSION_BUILD=%%c"
+)
+
+REM Handle cases where build number might be missing
+if not defined VERSION_BUILD set "VERSION_BUILD=0"
+
+echo ; Auto-generated version file > "%VERSION_NSH_FILE%"
+echo ; Generated from Qt project VERSION = %VERSION% >> "%VERSION_NSH_FILE%"
+echo !define VERSIONMAJOR %VERSION_MAJOR% >> "%VERSION_NSH_FILE%"
+echo !define VERSIONMINOR %VERSION_MINOR% >> "%VERSION_NSH_FILE%"
+echo !define VERSIONBUILD %VERSION_BUILD% >> "%VERSION_NSH_FILE%"
+echo !define FULLVERSION "%VERSION%" >> "%VERSION_NSH_FILE%"
+
+REM === Debug: Show generated version file ===
+echo [DEBUG] Generated version.nsh contents:
+type "%VERSION_NSH_FILE%"
 
 REM === Debug: Check directory structure ===
 echo [DEBUG] Contents of installer directory:
