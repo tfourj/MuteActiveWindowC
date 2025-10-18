@@ -11,6 +11,8 @@
 #include <QFile>
 #include <QStandardPaths>
 
+class QProgressDialog;
+
 class UpdateManager : public QObject {
     Q_OBJECT
 
@@ -33,6 +35,7 @@ private slots:
     void onVersionCheckFinished();
     void onDownloadFinished();
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
+    void onDownloadCanceled();
 
 private:
     UpdateManager();
@@ -46,6 +49,7 @@ private:
     QNetworkReply* currentReply_;
     QString downloadedInstallerPath_;
     QString pendingVersion_;
+    QProgressDialog* progressDialog_;
     
     void updateAvailability();
     void checkOnlineVersion();
@@ -58,5 +62,8 @@ private:
     void fallbackToConfigureOrGitHub();
     void openGitHubReleases();
     void showUpdateCheckError(const QString& reason);
+    QString formatFileSize(qint64 bytes) const;
+    bool launchInstallerWithElevation(const QString& installerPath);
+    void showElevationPrompt();
     bool userInitiated_ = false;
 }; 

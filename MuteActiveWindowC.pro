@@ -47,7 +47,7 @@ win32 {
 
 # Application name and version
 TARGET = MuteActiveWindowC
-VERSION = 2.0.1
+VERSION = 2.0.2
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 
 # Auto-deploy after build (Release only)
