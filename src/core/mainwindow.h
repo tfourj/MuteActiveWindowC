@@ -53,7 +53,9 @@ private slots:
     void copyRegistryPath();
     void showMainWindow();
     void quitApplication();
+    void addManualProcess();
     void addCurrentProcess();
+    void removeSelectedProcess();
     void clearProcesses();
     void saveProcesses();
     void onDarkModeChanged();
@@ -71,6 +73,9 @@ private:
     QString getUWPAppName(DWORD pid);
     QStringList getAvailableAudioDevices();
     void setupSystemTray();
+    void populateExcludedProcessesTable(const QStringList& processes);
+    void addProcessRow(const QString& processName);
+    QStringList collectExcludedProcesses() const;
 
     Ui::MainWindow *ui;
     AudioMuter muter_;

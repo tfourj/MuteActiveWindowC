@@ -37,6 +37,10 @@
 #include <QTimer>
 #include <QClipboard>
 #include <QSizePolicy>
+#include <QHeaderView>
+#include <QTableWidgetItem>
+#include <QItemSelectionModel>
+#include <algorithm>
 #include "update_manager.h"
 #include "keyboard_hook.h"
 
@@ -47,6 +51,9 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr) {
     Logger::log("=== MainWindow Constructor ===");
     ui->setupUi(this);
+
+    ui->excludedProcessesTable->verticalHeader()->setVisible(false);
+    ui->excludedProcessesTable->horizontalHeader()->setStretchLastSection(true);
 
     Logger::init(QCoreApplication::applicationDirPath() + "/app.log");
     Logger::log("=== App started ===");
@@ -65,7 +72,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->refreshDevicesButton, &QPushButton::clicked, this, &MainWindow::refreshDevices);
     connect(ui->openApplicationFolderButton, &QPushButton::clicked, this, &MainWindow::openApplicationFolder);
     connect(ui->copyRegistryPathButton, &QPushButton::clicked, this, &MainWindow::copyRegistryPath);
+    connect(ui->addProcessButton, &QPushButton::clicked, this, &MainWindow::addManualProcess);
     connect(ui->addCurrentProcessButton, &QPushButton::clicked, this, &MainWindow::addCurrentProcess);
+    connect(ui->removeProcessButton, &QPushButton::clicked, this, &MainWindow::removeSelectedProcess);
     connect(ui->clearProcessesButton, &QPushButton::clicked, this, &MainWindow::clearProcesses);
     connect(ui->saveProcessesButton, &QPushButton::clicked, this, &MainWindow::saveProcesses);
     connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &MainWindow::checkForUpdates);
@@ -219,9 +228,9 @@ void MainWindow::loadSettings() {
     
     // Load excluded processes
     QStringList excludedProcesses = settingsManager_.getExcludedProcesses();
-    ui->excludedProcessesEdit->setPlainText(excludedProcesses.join("\n"));
+    populateExcludedProcessesTable(excludedProcesses);
     Logger::log(QString("Loaded excluded processes: %1").arg(excludedProcesses.join(", ")));
-    
+
     Logger::log("=== Settings Loading Complete ===");
 }
 
@@ -251,9 +260,9 @@ void MainWindow::saveSettings() {
     
     // Save dark mode setting
     settingsManager_.setDarkMode(ui->darkModeCheck->isChecked());
-    
+
     // Save excluded processes
-    QStringList excludedProcesses = ui->excludedProcessesEdit->toPlainText().split("\n", Qt::SkipEmptyParts);
+    QStringList excludedProcesses = collectExcludedProcesses();
     settingsManager_.setExcludedProcesses(excludedProcesses);
     
     // Save all settings (this also handles registry updates)
@@ -1005,19 +1014,140 @@ void MainWindow::quitApplication() {
     QApplication::quit();
 }
 
+void MainWindow::populateExcludedProcessesTable(const QStringList& processes) {
+    ui->excludedProcessesTable->setRowCount(0);
+
+    QStringList added;
+    added.reserve(processes.size());
+
+    for (const QString& process : processes) {
+        QString trimmed = process.trimmed();
+        if (trimmed.isEmpty()) {
+            continue;
+        }
+
+        if (trimmed.endsWith(".exe", Qt::CaseInsensitive)) {
+            trimmed.chop(4);
+        }
+
+        bool exists = false;
+        for (const QString& existing : added) {
+            if (existing.compare(trimmed, Qt::CaseInsensitive) == 0) {
+                exists = true;
+                break;
+            }
+        }
+
+        if (exists) {
+            continue;
+        }
+
+        addProcessRow(trimmed);
+        added.append(trimmed);
+    }
+}
+
+void MainWindow::addProcessRow(const QString& processName) {
+    int row = ui->excludedProcessesTable->rowCount();
+    ui->excludedProcessesTable->insertRow(row);
+
+    auto *item = new QTableWidgetItem(processName);
+    item->setFlags((item->flags() | Qt::ItemIsEditable) & ~Qt::ItemIsUserCheckable);
+    ui->excludedProcessesTable->setItem(row, 0, item);
+}
+
+QStringList MainWindow::collectExcludedProcesses() const {
+    QStringList processes;
+
+    for (int row = 0; row < ui->excludedProcessesTable->rowCount(); ++row) {
+        QTableWidgetItem *item = ui->excludedProcessesTable->item(row, 0);
+        if (!item) {
+            continue;
+        }
+
+        QString name = item->text().trimmed();
+        if (name.isEmpty()) {
+            continue;
+        }
+
+        if (name.endsWith(".exe", Qt::CaseInsensitive)) {
+            name.chop(4);
+        }
+
+        bool duplicate = false;
+        for (const QString& existing : processes) {
+            if (existing.compare(name, Qt::CaseInsensitive) == 0) {
+                duplicate = true;
+                break;
+            }
+        }
+
+        if (!duplicate) {
+            processes.append(name);
+        }
+    }
+
+    return processes;
+}
+
+void MainWindow::addManualProcess() {
+    bool ok = false;
+    QString processName = QInputDialog::getText(
+        this,
+        "Add Process",
+        "Process name (without .exe):",
+        QLineEdit::Normal,
+        "",
+        &ok);
+
+    if (!ok) {
+        return;
+    }
+
+    processName = processName.trimmed();
+    if (processName.endsWith(".exe", Qt::CaseInsensitive)) {
+        processName.chop(4);
+    }
+
+    if (processName.isEmpty()) {
+        QMessageBox::warning(this, "Invalid Input", "Please enter a valid process name.");
+        return;
+    }
+
+    QStringList excludedProcesses = collectExcludedProcesses();
+    if (excludedProcesses.contains(processName, Qt::CaseInsensitive)) {
+        QMessageBox::information(this, "Already Excluded",
+            QString("Process '%1' is already in the exclusion list.").arg(processName));
+        return;
+    }
+
+    addProcessRow(processName);
+    QStringList updated = collectExcludedProcesses();
+    settingsManager_.setExcludedProcesses(updated);
+
+    QMessageBox::information(this, "Process Added",
+        QString("Process '%1' has been added to exclusions.").arg(processName));
+
+    Logger::log(QString("Added process to exclusions manually: %1").arg(processName));
+}
+
 void MainWindow::addCurrentProcess() {
     ProcessSelectionDialog dialog(ProcessSelectionDialog::ExclusionMode, this);
     
     if (dialog.exec() == QDialog::Accepted) {
-        QString processName = dialog.getSelectedProcess();
+        QString processName = dialog.getSelectedProcess().trimmed();
         
         if (processName.isEmpty()) {
             QMessageBox::warning(this, "No Selection", "Please select a process from the list.");
             return;
         }
+
+        if (processName.endsWith(".exe", Qt::CaseInsensitive)) {
+            processName.chop(4);
+        }
         
         // Get current excluded processes
-        QStringList excludedProcesses = settingsManager_.getExcludedProcesses();
+        QStringList excludedProcesses = collectExcludedProcesses();
         
         // Check if already in the list
         if (excludedProcesses.contains(processName, Qt::CaseInsensitive)) {
@@ -1026,17 +1156,62 @@ void MainWindow::addCurrentProcess() {
             return;
         }
         
-        // Add to the list
-        excludedProcesses.append(processName);
-        settingsManager_.setExcludedProcesses(excludedProcesses);
-        
-        // Update the UI
-        ui->excludedProcessesEdit->setPlainText(excludedProcesses.join("\n"));
+        // Add to the list and update settings/UI
+        addProcessRow(processName);
+        QStringList updated = collectExcludedProcesses();
+        settingsManager_.setExcludedProcesses(updated);
         
         QMessageBox::information(this, "Process Added", 
             QString("Process '%1' has been added to exclusions.").arg(processName));
         
         Logger::log(QString("Added process to exclusions: %1").arg(processName));
+    }
+}
+
+void MainWindow::removeSelectedProcess() {
+    QItemSelectionModel *selectionModel = ui->excludedProcessesTable->selectionModel();
+    if (!selectionModel) {
+        return;
+    }
+
+    QModelIndexList selectedRows = selectionModel->selectedRows();
+    if (selectedRows.isEmpty()) {
+        QMessageBox::information(this, "No Selection", "Please select a process to remove.");
+        return;
+    }
+
+    QStringList removedProcesses;
+    removedProcesses.reserve(selectedRows.size());
+
+    for (const QModelIndex& index : selectedRows) {
+        QTableWidgetItem *item = ui->excludedProcessesTable->item(index.row(), 0);
+        if (item) {
+            QString name = item->text().trimmed();
+            if (!name.isEmpty()) {
+                removedProcesses.append(name);
+            }
+        }
+    }
+
+    std::sort(selectedRows.begin(), selectedRows.end(), [](const QModelIndex& a, const QModelIndex& b) {
+        return a.row() > b.row();
+    });
+
+    for (const QModelIndex& index : selectedRows) {
+        ui->excludedProcessesTable->removeRow(index.row());
+    }
+
+    QStringList updated = collectExcludedProcesses();
+    settingsManager_.setExcludedProcesses(updated);
+
+    statusBar()->showMessage(
+        removedProcesses.size() == 1
+            ? QString("Removed '%1' from exclusions").arg(removedProcesses.first())
+            : QString("Removed %1 processes from exclusions").arg(removedProcesses.size()),
+        2000);
+
+    if (!removedProcesses.isEmpty()) {
+        Logger::log(QString("Removed processes from exclusions: %1").arg(removedProcesses.join(", ")));
     }
 }
 
@@ -1047,7 +1222,7 @@ void MainWindow::clearProcesses() {
     
     if (reply == QMessageBox::Yes) {
         settingsManager_.setExcludedProcesses(QStringList());
-        ui->excludedProcessesEdit->clear();
+        ui->excludedProcessesTable->setRowCount(0);
         saveSettings();
         
         QMessageBox::information(this, "Processes Cleared", 
@@ -1058,11 +1233,13 @@ void MainWindow::clearProcesses() {
 }
 
 void MainWindow::saveProcesses() {
-    // Get the current text from the text edit
-    QStringList excludedProcesses = ui->excludedProcessesEdit->toPlainText().split("\n", Qt::SkipEmptyParts);
+    QStringList excludedProcesses = collectExcludedProcesses();
     
     // Save to settings
     settingsManager_.setExcludedProcesses(excludedProcesses);
+
+    // Refresh table to normalise any edits (trim, remove duplicates)
+    populateExcludedProcessesTable(excludedProcesses);
     
     // Show success message
     statusBar()->showMessage("Process exclusions saved", 2000);
