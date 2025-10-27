@@ -208,27 +208,46 @@
            <string>Enter process names (without .exe extension) that should be excluded from muting operations.</string>
           </property>
           <property name="text">
-           <string>Add process names to exclude from muting (one per line):</string>
+           <string>Manage processes to exclude from muting:</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QTextEdit" name="excludedProcessesEdit">
+         <widget class="QTableWidget" name="excludedProcessesTable">
           <property name="toolTip">
-           <string>List of process names to exclude from muting. One process name per line (e.g., chrome, firefox, discord).</string>
+           <string>List of process names to exclude from muting. Double-click a row to edit.</string>
           </property>
-          <property name="placeholderText">
-           <string>Enter process names here, one per line
-Examples:
-chrome
-firefox
-discord
-spotify</string>
+          <property name="editTriggers">
+           <set>QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed|QAbstractItemView::SelectedClicked</set>
           </property>
+          <property name="alternatingRowColors">
+           <bool>true</bool>
+          </property>
+          <property name="selectionBehavior">
+           <enum>QAbstractItemView::SelectRows</enum>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::ExtendedSelection</enum>
+          </property>
+          <column>
+           <property name="text">
+            <string>Process Name</string>
+           </property>
+          </column>
          </widget>
         </item>
         <item>
          <layout class="QHBoxLayout" name="processesButtonsLayout">
+          <item>
+           <widget class="QPushButton" name="addProcessButton">
+            <property name="toolTip">
+             <string>Add a custom process name to the exclusion list.</string>
+            </property>
+            <property name="text">
+             <string>Add Process</string>
+            </property>
+           </widget>
+          </item>
           <item>
            <widget class="QPushButton" name="addCurrentProcessButton">
             <property name="toolTip">
@@ -236,6 +255,16 @@ spotify</string>
             </property>
             <property name="text">
              <string>Add from Running Processes</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="removeProcessButton">
+            <property name="toolTip">
+             <string>Remove the selected process from the exclusion list.</string>
+            </property>
+            <property name="text">
+             <string>Remove Selected</string>
             </property>
            </widget>
           </item>
