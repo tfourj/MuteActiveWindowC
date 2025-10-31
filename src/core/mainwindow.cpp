@@ -53,7 +53,7 @@ static constexpr int VOLUME_DOWN_HOTKEY_ID = 0xBEE2;
 MainWindow* MainWindow::clickDetectionInstance_ = nullptr;
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), volumeUpHotkeyId_(VOLUME_UP_HOTKEY_ID), volumeDownHotkeyId_(VOLUME_DOWN_HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr), mouseHookHandle_(nullptr), clickDetectionTimer_(nullptr), waitingForClick_(false) {
+    : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), volumeUpHotkeyId_(VOLUME_UP_HOTKEY_ID), volumeDownHotkeyId_(VOLUME_DOWN_HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr), mouseHookHandle_(nullptr), clickDetectionTimer_(nullptr), waitingForClick_(false), clickDetectionMessageBox_(nullptr) {
     Logger::log("=== MainWindow Constructor ===");
     ui->setupUi(this);
 
@@ -1839,9 +1839,12 @@ void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int ho
 
 LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0 && clickDetectionInstance_) {
-        // Check if object is still valid by checking waitingForClick_ flag
-        // If MainWindow was destroyed, this might access invalid memory, but we check instance first
-        if (clickDetectionInstance_->waitingForClick_ && wParam == WM_LBUTTONDOWN) {
+        // Check if object is still valid and if message box is still visible
+        // Only detect clicks while the message box is shown
+        if (clickDetectionInstance_->waitingForClick_ && 
+            clickDetectionInstance_->clickDetectionMessageBox_ &&
+            clickDetectionInstance_->clickDetectionMessageBox_->isVisible() &&
+            wParam == WM_LBUTTONDOWN) {
             MSLLHOOKSTRUCT* mouseData = reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
             int x = mouseData->pt.x;
             int y = mouseData->pt.y;
@@ -1886,6 +1889,12 @@ void MainWindow::cleanupClickDetection() {
         clickDetectionTimer_ = nullptr;
     }
     
+    if (clickDetectionMessageBox_) {
+        clickDetectionMessageBox_->close();
+        clickDetectionMessageBox_->deleteLater();
+        clickDetectionMessageBox_ = nullptr;
+    }
+    
     // Don't set clickDetectionInstance_ to nullptr here - it might still be needed
     // for the queued method call. It will be set when the click is processed.
 }
@@ -1893,6 +1902,13 @@ void MainWindow::cleanupClickDetection() {
 void MainWindow::onMouseClickDetected(int x, int y) {
     // This is called on the main thread via QMetaObject::invokeMethod
     // Now we can safely use Qt UI components
+    
+    // Close the message box first
+    if (clickDetectionMessageBox_) {
+        clickDetectionMessageBox_->accept(); // This will close it
+        clickDetectionMessageBox_->deleteLater();
+        clickDetectionMessageBox_ = nullptr;
+    }
     
     // Finalize cleanup
     if (clickDetectionTimer_) {
@@ -1934,19 +1950,11 @@ void MainWindow::setOSDPositionToCursor() {
     // Wait a moment for any pending deleteLater() operations to complete
     QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
     
-    // Show message that user has 5 seconds to click
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Click Detection");
-    msgBox.setText("Click Detection Started");
-    msgBox.setInformativeText("You have 5 seconds to click anywhere on the screen where you want the OSD to appear.");
-    msgBox.setStandardButtons(QMessageBox::Ok);
-    msgBox.exec();
-    
     // Set instance for static callback
     clickDetectionInstance_ = this;
     waitingForClick_ = true;
     
-    // Install mouse hook
+    // Install mouse hook BEFORE showing message box
     mouseHookHandle_ = SetWindowsHookEx(WH_MOUSE_LL, mouseHookProc, GetModuleHandle(nullptr), 0);
     
     if (!mouseHookHandle_) {
@@ -1960,18 +1968,31 @@ void MainWindow::setOSDPositionToCursor() {
     
     Logger::log("Mouse hook installed for click detection");
     
-    // Create timer for 5 second timeout (ensure previous one is gone)
-    if (clickDetectionTimer_) {
-        clickDetectionTimer_->stop();
-        clickDetectionTimer_->deleteLater();
-        clickDetectionTimer_ = nullptr;
-        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-    }
-    
+    // Create timer for 5 second timeout
     clickDetectionTimer_ = new QTimer(this);
     clickDetectionTimer_->setSingleShot(true);
     connect(clickDetectionTimer_, &QTimer::timeout, this, &MainWindow::onClickDetectionTimeout);
     clickDetectionTimer_->start(5000); // 5 seconds
     
-    Logger::log("Click detection started - waiting for left click within 5 seconds");
+    // Create and show message box with Cancel button (non-blocking)
+    clickDetectionMessageBox_ = new QMessageBox(this);
+    clickDetectionMessageBox_->setWindowTitle("Click Detection");
+    clickDetectionMessageBox_->setText("Click Detection Active");
+    clickDetectionMessageBox_->setInformativeText("Click anywhere on the screen where you want the OSD to appear. You have 5 seconds.\n\nClick Cancel to abort.");
+    clickDetectionMessageBox_->setStandardButtons(QMessageBox::Cancel);
+    clickDetectionMessageBox_->setModal(true);
+    
+    // Connect Cancel button to cleanup
+    connect(clickDetectionMessageBox_, &QMessageBox::rejected, this, [this]() {
+        Logger::log("Click detection cancelled by user");
+        cleanupClickDetection();
+        clickDetectionInstance_ = nullptr;
+    });
+    
+    // Show the message box (non-blocking)
+    clickDetectionMessageBox_->show();
+    clickDetectionMessageBox_->raise();
+    clickDetectionMessageBox_->activateWindow();
+    
+    Logger::log("Click detection started - waiting for left click while message box is visible");
 }
