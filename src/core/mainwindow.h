@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QSystemTrayIcon>
 #include <QMenu>
+#include <QTimer>
 #include <atlbase.h>
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
@@ -67,6 +68,7 @@ private slots:
     void onVolumeUpTriggered();
     void onVolumeDownTriggered();
     void setOSDPositionToCursor();
+    void onMouseClickDetected(int x, int y);
 
 private:
     void registerHotkey();
@@ -97,4 +99,13 @@ private:
     SettingsManager& settingsManager_;
     QSystemTrayIcon* trayIcon_;
     QMenu* trayMenu_;
+    
+    // For mouse click detection
+    HHOOK mouseHookHandle_;
+    QTimer* clickDetectionTimer_;
+    bool waitingForClick_;
+    static MainWindow* clickDetectionInstance_;
+    static LRESULT CALLBACK mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+    void cleanupClickDetection();
+    void onClickDetectionTimeout();
 };

@@ -50,8 +50,10 @@ static constexpr int HOTKEY_ID = 0xBEEF;
 static constexpr int VOLUME_UP_HOTKEY_ID = 0xBEE1;
 static constexpr int VOLUME_DOWN_HOTKEY_ID = 0xBEE2;
 
+MainWindow* MainWindow::clickDetectionInstance_ = nullptr;
+
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), volumeUpHotkeyId_(VOLUME_UP_HOTKEY_ID), volumeDownHotkeyId_(VOLUME_DOWN_HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr) {
+    : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), volumeUpHotkeyId_(VOLUME_UP_HOTKEY_ID), volumeDownHotkeyId_(VOLUME_DOWN_HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr), mouseHookHandle_(nullptr), clickDetectionTimer_(nullptr), waitingForClick_(false) {
     Logger::log("=== MainWindow Constructor ===");
     ui->setupUi(this);
 
@@ -83,6 +85,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &MainWindow::checkForUpdates);
     connect(ui->hotkeyInfoButton, &QPushButton::clicked, this, &MainWindow::showHotkeyInfo);
     connect(ui->applyVolumeControlButton, &QPushButton::clicked, this, &MainWindow::applyVolumeControlSettings);
+    connect(ui->setOSDPositionToCursorButton, &QPushButton::clicked, this, &MainWindow::setOSDPositionToCursor);
     
     // Connect settings checkboxes to auto-save
     connect(ui->startupCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
@@ -168,6 +171,8 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 MainWindow::~MainWindow() {
+    // Cleanup click detection if active
+    cleanupClickDetection();
     unregisterHotkey();
     
     // Clean up system tray
@@ -1704,8 +1709,9 @@ void MainWindow::positionVolumeOSD() {
         position = "Center";
     }
     
+    // OSD size is dynamic, use default size for positioning calculations
     int osdWidth = 250;
-    int osdHeight = 60;
+    int osdHeight = 50;
     
     if (position == "Center") {
         QPoint center = screenGeometry.center();
@@ -1813,10 +1819,125 @@ void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int ho
     }
 }
 
+LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && clickDetectionInstance_ && clickDetectionInstance_->waitingForClick_) {
+        if (wParam == WM_LBUTTONDOWN) {
+            MSLLHOOKSTRUCT* mouseData = reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
+            int x = mouseData->pt.x;
+            int y = mouseData->pt.y;
+            
+            // Cleanup hook and timer (do this from hook thread, but UI operations must be on main thread)
+            if (clickDetectionInstance_->mouseHookHandle_) {
+                UnhookWindowsHookEx(clickDetectionInstance_->mouseHookHandle_);
+                clickDetectionInstance_->mouseHookHandle_ = nullptr;
+            }
+            
+            clickDetectionInstance_->waitingForClick_ = false;
+            
+            // Post event to main thread to handle UI operations
+            QMetaObject::invokeMethod(clickDetectionInstance_, "onMouseClickDetected", 
+                                      Qt::QueuedConnection,
+                                      Q_ARG(int, x), 
+                                      Q_ARG(int, y));
+            
+            // Suppress the click from being processed
+            return 1;
+        }
+    }
+    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
+
+void MainWindow::cleanupClickDetection() {
+    waitingForClick_ = false;
+    
+    if (mouseHookHandle_) {
+        UnhookWindowsHookEx(mouseHookHandle_);
+        mouseHookHandle_ = nullptr;
+        Logger::log("Mouse hook uninstalled");
+    }
+    
+    if (clickDetectionTimer_) {
+        clickDetectionTimer_->stop();
+        clickDetectionTimer_->deleteLater();
+        clickDetectionTimer_ = nullptr;
+    }
+    
+    // Don't set clickDetectionInstance_ to nullptr here - it might still be needed
+    // for the queued method call. It will be set when the click is processed.
+}
+
+void MainWindow::onMouseClickDetected(int x, int y) {
+    // This is called on the main thread via QMetaObject::invokeMethod
+    // Now we can safely use Qt UI components
+    
+    // Finalize cleanup
+    if (clickDetectionTimer_) {
+        clickDetectionTimer_->stop();
+        clickDetectionTimer_->deleteLater();
+        clickDetectionTimer_ = nullptr;
+    }
+    clickDetectionInstance_ = nullptr;
+    
+    // Show confirmation dialog
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "Set OSD Position",
+        QString("Set OSD position to coordinates:\n\nX: %1\nY: %2\n\nDo you want to set this position?")
+            .arg(x).arg(y),
+        QMessageBox::Yes | QMessageBox::No
+    );
+    
+    if (reply == QMessageBox::Yes) {
+        ui->volumeOSDCustomXSpinBox->setValue(x);
+        ui->volumeOSDCustomYSpinBox->setValue(y);
+        ui->volumeOSDPositionComboBox->setCurrentText("Custom");
+        Logger::log(QString("OSD custom position set to clicked position: X=%1, Y=%2").arg(x).arg(y));
+    } else {
+        Logger::log("OSD position setting cancelled by user");
+    }
+}
+
+void MainWindow::onClickDetectionTimeout() {
+    cleanupClickDetection();
+    QMessageBox::information(this, "Time Expired", "Click detection timed out. Please try again.");
+    Logger::log("Click detection timed out");
+}
+
 void MainWindow::setOSDPositionToCursor() {
-    QPoint cursorPos = QCursor::pos();
-    ui->volumeOSDCustomXSpinBox->setValue(cursorPos.x());
-    ui->volumeOSDCustomYSpinBox->setValue(cursorPos.y());
-    ui->volumeOSDPositionComboBox->setCurrentText("Custom");
-    Logger::log(QString("OSD custom position set to cursor: X=%1, Y=%2").arg(cursorPos.x()).arg(cursorPos.y()));
+    // Cleanup any existing click detection
+    cleanupClickDetection();
+    
+    // Show message that user has 5 seconds to click
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Click Detection");
+    msgBox.setText("Click Detection Started");
+    msgBox.setInformativeText("You have 5 seconds to click anywhere on the screen where you want the OSD to appear.");
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.exec();
+    
+    // Set instance for static callback
+    clickDetectionInstance_ = this;
+    waitingForClick_ = true;
+    
+    // Install mouse hook
+    mouseHookHandle_ = SetWindowsHookEx(WH_MOUSE_LL, mouseHookProc, GetModuleHandle(nullptr), 0);
+    
+    if (!mouseHookHandle_) {
+        DWORD error = GetLastError();
+        Logger::log(QString("Failed to install mouse hook. Error: %1 (0x%2)").arg(error).arg(error, 0, 16));
+        QMessageBox::warning(this, "Error", "Failed to install mouse hook. Please try again.");
+        waitingForClick_ = false;
+        clickDetectionInstance_ = nullptr;
+        return;
+    }
+    
+    Logger::log("Mouse hook installed for click detection");
+    
+    // Create timer for 5 second timeout
+    clickDetectionTimer_ = new QTimer(this);
+    clickDetectionTimer_->setSingleShot(true);
+    connect(clickDetectionTimer_, &QTimer::timeout, this, &MainWindow::onClickDetectionTimeout);
+    clickDetectionTimer_->start(5000); // 5 seconds
+    
+    Logger::log("Click detection started - waiting for left click within 5 seconds");
 }

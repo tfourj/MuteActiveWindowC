@@ -30,16 +30,13 @@ VolumeOSD& VolumeOSD::instance() {
 }
 
 void VolumeOSD::setupUI() {
-    // Widget size - but label will extend beyond for cutoff effect
-    setFixedSize(250, 60);
     // Enable clipping to show cutoff effect - children will be clipped to widget bounds
     setAttribute(Qt::WA_OpaquePaintEvent, false);
     
     // Single label for "processname: volume%" format
+    // Size will be adjusted dynamically in showVolumeOSD
     contentLabel_ = new QLabel(this);
-    // Position it so it extends beyond the widget bounds (partially cut off) - extends to 290px but widget is only 250px
-    contentLabel_->setGeometry(10, 10, 290, 45);
-    contentLabel_->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    contentLabel_->setAlignment(Qt::AlignCenter);
     contentLabel_->setTextFormat(Qt::RichText); // Enable HTML formatting for colored volume
     contentLabel_->setStyleSheet(
         "QLabel {"
@@ -47,7 +44,7 @@ void VolumeOSD::setupUI() {
         "  color: white;"
         "  font-size: 18px;"
         "  font-weight: bold;"
-        "  padding: 10px 20px;"
+        "  padding: 8px 15px;"
         "  border-radius: 4px;"
         "}"
     );
@@ -70,6 +67,31 @@ void VolumeOSD::showVolumeOSD(const QString& processName, float volumePercent) {
     int volumeValue = qRound(volumePercent * 100.0f);
     QString fullText = QString("%1: <span style='color: #4CAF50;'>%2%</span>").arg(processDisplayName).arg(volumeValue);
     contentLabel_->setText(fullText);
+    
+    // Calculate text width and adjust widget size dynamically
+    contentLabel_->adjustSize();
+    QSize textSize = contentLabel_->sizeHint();
+    
+    // Padding: equal left and right padding on widget, right extends for cutoff
+    int widgetLeftPadding = 10; // Visible left padding from widget edge
+    int widgetRightPadding = 10; // Visible right padding (before cutoff extension)
+    int rightExtension = 40; // Extra space for percent cutoff on the right
+    int minWidth = 180;
+    
+    // Widget width = text width + left padding + right padding + space for cutoff
+    int calculatedWidth = qMax(minWidth, textSize.width() + widgetLeftPadding + widgetRightPadding + rightExtension);
+    int widgetWidth = calculatedWidth;
+    int widgetHeight = 50;
+    
+    // Set widget size dynamically
+    setFixedSize(widgetWidth, widgetHeight);
+    
+    // Position label: start at widgetLeftPadding, extend beyond widget for cutoff
+    int labelX = widgetLeftPadding;
+    // Label width extends beyond widget: text + both paddings + right extension
+    int labelWidth = textSize.width() + widgetLeftPadding + widgetRightPadding + rightExtension;
+    int labelY = (widgetHeight - textSize.height()) / 2;
+    contentLabel_->setGeometry(labelX, labelY, labelWidth, textSize.height());
     
     // Position will be set by MainWindow before showing
     
