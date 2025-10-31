@@ -115,20 +115,20 @@ void VolumeOSD::showVolumeOSD(const QString& processName, float volumePercent) {
 }
 
 void VolumeOSD::setCustomPosition(int x, int y) {
-    QScreen* screen = QApplication::primaryScreen();
-    if (!screen) {
-        return;
-    }
-    
-    QRect screenGeometry = screen->geometry();
-    
-    if (x < 0 || y < 0) {
+    // -1 is used as sentinel value to indicate "not set" or "use default"
+    // Other negative values are valid for multi-monitor setups (e.g., monitor to left of primary)
+    if (x == -1 || y == -1) {
         // Calculate position based on saved setting (will be called from MainWindow)
         // For now, default to center
+        QScreen* screen = QApplication::primaryScreen();
+        if (!screen) {
+            return;
+        }
+        QRect screenGeometry = screen->geometry();
         QPoint center = screenGeometry.center();
         move(center.x() - width() / 2, center.y() - height() / 2);
     } else {
-        // Use custom position directly
+        // Use custom position directly (supports negative values for multi-monitor)
         move(x, y);
     }
 }

@@ -284,16 +284,16 @@
           <item>
            <widget class="QSpinBox" name="volumeOSDCustomXSpinBox">
             <property name="minimum">
-             <number>-1</number>
+             <number>-100000</number>
             </property>
             <property name="maximum">
-             <number>10000</number>
+             <number>100000</number>
             </property>
             <property name="value">
              <number>-1</number>
             </property>
             <property name="toolTip">
-             <string>Custom X position for OSD. Set to -1 to disable custom position.</string>
+             <string>Custom X position for OSD. Set to -1 to disable custom position. Supports negative values for multi-monitor setups.</string>
             </property>
            </widget>
           </item>
@@ -307,16 +307,16 @@
           <item>
            <widget class="QSpinBox" name="volumeOSDCustomYSpinBox">
             <property name="minimum">
-             <number>-1</number>
+             <number>-100000</number>
             </property>
             <property name="maximum">
-             <number>10000</number>
+             <number>100000</number>
             </property>
             <property name="value">
              <number>-1</number>
             </property>
             <property name="toolTip">
-             <string>Custom Y position for OSD. Set to -1 to disable custom position.</string>
+             <string>Custom Y position for OSD. Set to -1 to disable custom position. Supports negative values for multi-monitor setups.</string>
             </property>
            </widget>
           </item>

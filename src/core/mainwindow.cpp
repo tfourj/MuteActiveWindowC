@@ -1717,7 +1717,9 @@ void MainWindow::positionVolumeOSD() {
     if (position == "Custom") {
         x = settingsManager_.getVolumeOSDCustomX();
         y = settingsManager_.getVolumeOSDCustomY();
-        if (x >= 0 && y >= 0) {
+        // -1 is used as sentinel value to indicate "not set"
+        // Other values (including negative for multi-monitor) are valid
+        if (x != -1 && y != -1) {
             VolumeOSD::instance().setCustomPosition(x, y);
             return;
         }
