@@ -491,6 +491,144 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="volumeControlTab">
+       <attribute name="title">
+        <string>Volume Control</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="volumeControlLayout">
+        <item>
+         <widget class="QCheckBox" name="volumeControlEnabledCheck">
+          <property name="toolTip">
+           <string>Enable volume control feature for the active window application using hotkeys.</string>
+          </property>
+          <property name="text">
+           <string>Enable volume control feature</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="volumeUpHotkeyLabel">
+          <property name="text">
+           <string>Volume Up Hotkey (e.g., Ctrl+Up):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="volumeUpHotkeyLayout">
+          <item>
+           <widget class="QLineEdit" name="volumeUpHotkeyEdit">
+            <property name="placeholderText">
+             <string>e.g., Ctrl+Up, Alt+Volume Up, Ctrl+Win+Up</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="volumeDownHotkeyLabel">
+          <property name="text">
+           <string>Volume Down Hotkey (e.g., Ctrl+Down):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="volumeDownHotkeyLayout">
+          <item>
+           <widget class="QLineEdit" name="volumeDownHotkeyEdit">
+            <property name="placeholderText">
+             <string>e.g., Ctrl+Down, Alt+Volume Down, Ctrl+Win+Down</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="volumeStepLabel">
+          <property name="text">
+           <string>Volume Step (%):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="volumeStepLayout">
+          <item>
+           <widget class="QDoubleSpinBox" name="volumeStepSpinBox">
+            <property name="toolTip">
+             <string>Volume adjustment step percentage per hotkey press.</string>
+            </property>
+            <property name="decimals">
+             <number>1</number>
+            </property>
+            <property name="minimum">
+             <double>0.10000000000000001</double>
+            </property>
+            <property name="maximum">
+             <double>100.00000000000000</double>
+            </property>
+            <property name="singleStep">
+             <double>1.00000000000000000</double>
+            </property>
+            <property name="value">
+             <double>5.00000000000000000</double>
+            </property>
+            <property name="suffix">
+             <string>%</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="volumeStepSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPushButton" name="applyVolumeControlButton">
+          <property name="text">
+           <string>Apply Settings</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="volumeControlInfoLabel">
+          <property name="styleSheet">
+           <string>color: gray; font-size: 10px;</string>
+          </property>
+          <property name="text">
+           <string>Note: Volume control will adjust the volume of the active window application when the configured hotkeys are pressed. The feature must be enabled and hotkeys must be configured for it to work. Volume is adjusted by the specified step percentage and will be clamped between 0% and 100%.</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="volumeControlSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </item>
    </layout>

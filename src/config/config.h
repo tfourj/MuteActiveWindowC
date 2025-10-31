@@ -53,6 +53,16 @@ public:
     bool getUseHook() const;
     void setUseHook(bool enabled);
     
+    // Volume control settings
+    bool getVolumeControlEnabled() const;
+    void setVolumeControlEnabled(bool enabled);
+    QString getVolumeUpHotkey() const;
+    void setVolumeUpHotkey(const QString& hotkey);
+    QString getVolumeDownHotkey() const;
+    void setVolumeDownHotkey(const QString& hotkey);
+    float getVolumeStepPercent() const;
+    void setVolumeStepPercent(float stepPercent);
+    
     // Check if setting exists
     bool contains(const QString& key) const;
     

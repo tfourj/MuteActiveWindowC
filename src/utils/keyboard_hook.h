@@ -16,11 +16,18 @@ public:
     // Set the hotkey to monitor
     void setHotkey(const QKeySequence& sequence);
     
+    // Set volume control hotkeys
+    void setVolumeUpHotkey(const QKeySequence& sequence);
+    void setVolumeDownHotkey(const QKeySequence& sequence);
+    void clearVolumeHotkeys();
+    
     // Check if hook is installed
     bool isHookInstalled() const { return hookHandle_ != nullptr; }
 
 signals:
     void hotkeyTriggered();
+    void volumeUpTriggered();
+    void volumeDownTriggered();
 
 private:
     KeyboardHook();
@@ -43,11 +50,17 @@ private:
     HotkeyData convertKeySequence(const QKeySequence& sequence);
     
     // Check if current key state matches our hotkey
-    bool isHotkeyMatch(int vk, bool isKeyDown);
+    bool isHotkeyMatch(int vk, bool isKeyDown, const HotkeyData& data);
     
     HHOOK hookHandle_;
     QKeySequence currentHotkey_;
     HotkeyData hotkeyData_;
+    
+    // Volume control hotkeys
+    QKeySequence volumeUpHotkey_;
+    QKeySequence volumeDownHotkey_;
+    HotkeyData volumeUpHotkeyData_;
+    HotkeyData volumeDownHotkeyData_;
     
     // Track modifier states
     bool ctrlPressed_;

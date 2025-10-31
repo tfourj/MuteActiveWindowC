@@ -46,9 +46,11 @@
 
 static const QString VERSION = QString(APP_VERSION);
 static constexpr int HOTKEY_ID = 0xBEEF;
+static constexpr int VOLUME_UP_HOTKEY_ID = 0xBEE1;
+static constexpr int VOLUME_DOWN_HOTKEY_ID = 0xBEE2;
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr) {
+    : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), volumeUpHotkeyId_(VOLUME_UP_HOTKEY_ID), volumeDownHotkeyId_(VOLUME_DOWN_HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr) {
     Logger::log("=== MainWindow Constructor ===");
     ui->setupUi(this);
 
@@ -79,6 +81,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->saveProcessesButton, &QPushButton::clicked, this, &MainWindow::saveProcesses);
     connect(ui->checkForUpdatesButton, &QPushButton::clicked, this, &MainWindow::checkForUpdates);
     connect(ui->hotkeyInfoButton, &QPushButton::clicked, this, &MainWindow::showHotkeyInfo);
+    connect(ui->applyVolumeControlButton, &QPushButton::clicked, this, &MainWindow::applyVolumeControlSettings);
     
     // Connect settings checkboxes to auto-save
     connect(ui->startupCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
@@ -89,8 +92,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->darkModeCheck, &QCheckBox::toggled, this, &MainWindow::onDarkModeChanged);
     connect(ui->useHookCheck, &QCheckBox::toggled, this, &MainWindow::onUseHookChanged);
     
-    // Connect keyboard hook signal
+    // Connect keyboard hook signals
     connect(&KeyboardHook::instance(), &KeyboardHook::hotkeyTriggered, this, &MainWindow::onHotkeyTriggered);
+    connect(&KeyboardHook::instance(), &KeyboardHook::volumeUpTriggered, this, &MainWindow::onVolumeUpTriggered);
+    connect(&KeyboardHook::instance(), &KeyboardHook::volumeDownTriggered, this, &MainWindow::onVolumeDownTriggered);
+    
+    // Connect volume control checkbox
+    connect(ui->volumeControlEnabledCheck, &QCheckBox::toggled, this, &MainWindow::onVolumeControlEnabledChanged);
     
     // Setup system tray
     setupSystemTray();
@@ -131,6 +139,12 @@ MainWindow::MainWindow(QWidget *parent)
     
     Logger::log("Registering initial hotkey...");
     registerHotkey();
+    
+    // Register volume hotkeys if enabled
+    if (settingsManager_.getVolumeControlEnabled()) {
+        Logger::log("Volume control enabled, registering volume hotkeys...");
+        registerVolumeHotkeys();
+    }
     
     // Check if we should start minimized
     if (ui->startupMinimizedCheck->isChecked()) {
@@ -230,6 +244,37 @@ void MainWindow::loadSettings() {
     QStringList excludedProcesses = settingsManager_.getExcludedProcesses();
     populateExcludedProcessesTable(excludedProcesses);
     Logger::log(QString("Loaded excluded processes: %1").arg(excludedProcesses.join(", ")));
+    
+    // Load volume control settings
+    bool volumeControlEnabled = settingsManager_.getVolumeControlEnabled();
+    ui->volumeControlEnabledCheck->setChecked(volumeControlEnabled);
+    Logger::log(QString("Loaded volume control enabled setting: %1").arg(volumeControlEnabled ? "enabled" : "disabled"));
+    
+    QString volumeUpHotkey = settingsManager_.getVolumeUpHotkey();
+    volumeUpSeq_ = QKeySequence::fromString(volumeUpHotkey);
+    QString volumeUpDisplayText = volumeUpSeq_.toString();
+    volumeUpDisplayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
+    volumeUpDisplayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
+    if (volumeUpDisplayText == "Meta") {
+        volumeUpDisplayText = "Win";
+    }
+    ui->volumeUpHotkeyEdit->setText(volumeUpDisplayText);
+    Logger::log(QString("Loaded volume up hotkey: '%1'").arg(volumeUpHotkey));
+    
+    QString volumeDownHotkey = settingsManager_.getVolumeDownHotkey();
+    volumeDownSeq_ = QKeySequence::fromString(volumeDownHotkey);
+    QString volumeDownDisplayText = volumeDownSeq_.toString();
+    volumeDownDisplayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
+    volumeDownDisplayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
+    if (volumeDownDisplayText == "Meta") {
+        volumeDownDisplayText = "Win";
+    }
+    ui->volumeDownHotkeyEdit->setText(volumeDownDisplayText);
+    Logger::log(QString("Loaded volume down hotkey: '%1'").arg(volumeDownHotkey));
+    
+    float volumeStepPercent = settingsManager_.getVolumeStepPercent();
+    ui->volumeStepSpinBox->setValue(volumeStepPercent);
+    Logger::log(QString("Loaded volume step percent: %1").arg(volumeStepPercent));
 
     Logger::log("=== Settings Loading Complete ===");
 }
@@ -358,15 +403,34 @@ void MainWindow::registerHotkey() {
     if (useHook) {
         Logger::log("Using hook-based hotkey detection");
         KeyboardHook::instance().setHotkey(currentSeq_);
+        
+        // Also set volume hotkeys if enabled
+        if (settingsManager_.getVolumeControlEnabled()) {
+            if (!volumeUpSeq_.isEmpty()) {
+                KeyboardHook::instance().setVolumeUpHotkey(volumeUpSeq_);
+            }
+            if (!volumeDownSeq_.isEmpty()) {
+                KeyboardHook::instance().setVolumeDownHotkey(volumeDownSeq_);
+            }
+        }
+        
         if (KeyboardHook::instance().installHook()) {
             Logger::log(QString("Hotkey hook registered successfully: %1").arg(currentSeq_.toString()));
         } else {
             Logger::log("Failed to install keyboard hook, falling back to RegisterHotKey");
             registerHotkeyNormal();
+            if (settingsManager_.getVolumeControlEnabled()) {
+                registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
+                registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
+            }
         }
     } else {
         Logger::log("Using normal RegisterHotKey hotkey detection");
         registerHotkeyNormal();
+        if (settingsManager_.getVolumeControlEnabled()) {
+            registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
+            registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
+        }
     }
 }
 
@@ -488,6 +552,9 @@ void MainWindow::unregisterHotkey() {
             Logger::log(QString("Failed to unregister hotkey: %1").arg(error));
         }
     }
+    
+    // Also unregister volume hotkeys
+    unregisterVolumeHotkeys();
 }
 
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result) {
@@ -503,8 +570,18 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
                 onHotkeyTriggered();
                 *result = 0;
                 return true;
+            } else if (msg->wParam == volumeUpHotkeyId_) {
+                Logger::log("Volume up hotkey ID matches! Triggering onVolumeUpTriggered()");
+                onVolumeUpTriggered();
+                *result = 0;
+                return true;
+            } else if (msg->wParam == volumeDownHotkeyId_) {
+                Logger::log("Volume down hotkey ID matches! Triggering onVolumeDownTriggered()");
+                onVolumeDownTriggered();
+                *result = 0;
+                return true;
             } else {
-                Logger::log(QString("Hotkey ID mismatch: expected %1, got %2").arg(hotkeyId_).arg(msg->wParam));
+                Logger::log(QString("Hotkey ID mismatch: expected %1, %2, or %3, got %4").arg(hotkeyId_).arg(volumeUpHotkeyId_).arg(volumeDownHotkeyId_).arg(msg->wParam));
             }
         }
         
@@ -1326,4 +1403,293 @@ void MainWindow::showHotkeyInfo() {
     infoBox.exec();
     
     Logger::log("Displayed hotkey info dialog");
+}
+
+void MainWindow::applyVolumeControlSettings() {
+    Logger::log("=== Applying Volume Control Settings ===");
+    unregisterVolumeHotkeys();
+    
+    bool enabled = ui->volumeControlEnabledCheck->isChecked();
+    settingsManager_.setVolumeControlEnabled(enabled);
+    
+    float stepPercent = ui->volumeStepSpinBox->value();
+    settingsManager_.setVolumeStepPercent(stepPercent);
+    
+    // Process volume up hotkey
+    QString volumeUpKeyText = ui->volumeUpHotkeyEdit->text().trimmed();
+    QString processedVolumeUpKeyText = volumeUpKeyText;
+    processedVolumeUpKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
+    processedVolumeUpKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
+    if (processedVolumeUpKeyText == "Win") {
+        processedVolumeUpKeyText = "Meta";
+    }
+    
+    QKeySequence volumeUpSeq = QKeySequence::fromString(processedVolumeUpKeyText);
+    if (!volumeUpKeyText.isEmpty() && volumeUpSeq.isEmpty()) {
+        QMessageBox::warning(this, "Invalid Hotkey", QString("Invalid volume up hotkey format: %1\n\nPlease use format like: Ctrl+Up, Alt+Volume Up").arg(volumeUpKeyText));
+        return;
+    }
+    volumeUpSeq_ = volumeUpSeq;
+    settingsManager_.setVolumeUpHotkey(volumeUpSeq.toString());
+    
+    // Process volume down hotkey
+    QString volumeDownKeyText = ui->volumeDownHotkeyEdit->text().trimmed();
+    QString processedVolumeDownKeyText = volumeDownKeyText;
+    processedVolumeDownKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
+    processedVolumeDownKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
+    if (processedVolumeDownKeyText == "Win") {
+        processedVolumeDownKeyText = "Meta";
+    }
+    
+    QKeySequence volumeDownSeq = QKeySequence::fromString(processedVolumeDownKeyText);
+    if (!volumeDownKeyText.isEmpty() && volumeDownSeq.isEmpty()) {
+        QMessageBox::warning(this, "Invalid Hotkey", QString("Invalid volume down hotkey format: %1\n\nPlease use format like: Ctrl+Down, Alt+Volume Down").arg(volumeDownKeyText));
+        return;
+    }
+    volumeDownSeq_ = volumeDownSeq;
+    settingsManager_.setVolumeDownHotkey(volumeDownSeq.toString());
+    
+    settingsManager_.save();
+    
+    // Register volume hotkeys if enabled
+    if (enabled && (!volumeUpSeq.isEmpty() || !volumeDownSeq.isEmpty())) {
+        registerVolumeHotkeys();
+    }
+    
+    QMessageBox::information(this, "Volume Control Settings Saved", 
+        QString("Volume control settings saved successfully!\n\n"
+                "Enabled: %1\n"
+                "Volume Up Hotkey: %2\n"
+                "Volume Down Hotkey: %3\n"
+                "Volume Step: %4%")
+        .arg(enabled ? "Yes" : "No")
+        .arg(volumeUpSeq.isEmpty() ? "Not set" : volumeUpSeq.toString())
+        .arg(volumeDownSeq.isEmpty() ? "Not set" : volumeDownSeq.toString())
+        .arg(stepPercent));
+    
+    Logger::log(QString("Volume control settings saved: enabled=%1, up=%2, down=%3, step=%4%")
+                .arg(enabled)
+                .arg(volumeUpSeq.toString())
+                .arg(volumeDownSeq.toString())
+                .arg(stepPercent));
+}
+
+void MainWindow::onVolumeControlEnabledChanged() {
+    bool enabled = ui->volumeControlEnabledCheck->isChecked();
+    settingsManager_.setVolumeControlEnabled(enabled);
+    
+    if (enabled) {
+        registerVolumeHotkeys();
+    } else {
+        unregisterVolumeHotkeys();
+    }
+    
+    Logger::log(QString("Volume control enabled changed to: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
+void MainWindow::onVolumeUpTriggered() {
+    Logger::log("=== Volume Up Hotkey Triggered ===");
+    
+    if (!settingsManager_.getVolumeControlEnabled()) {
+        Logger::log("Volume control is disabled, ignoring");
+        return;
+    }
+    
+    HWND fg = GetForegroundWindow();
+    if (!fg) {
+        Logger::log("Failed to get foreground window");
+        return;
+    }
+    
+    DWORD pid = 0;
+    if (!GetWindowThreadProcessId(fg, &pid)) {
+        Logger::log("Failed to get process ID");
+        return;
+    }
+    
+    QString targetExe = getMainProcessName(pid);
+    Logger::log(QString("Volume up pressed. Target executable: %1 (PID: %2)").arg(targetExe).arg(pid));
+    
+    float stepPercent = settingsManager_.getVolumeStepPercent();
+    int n = 0;
+    
+    // Check if PID-based muting is enabled (reuse the same setting)
+    if (ui->mainProcessOnlyCheck->isChecked()) {
+        Logger::log("PID-based mode: Adjusting volume for specific PID");
+        n = muter_.increaseVolumeByPID(pid, stepPercent);
+        if (n == 0) {
+            Logger::log("No audio sessions found for specific PID, falling back to executable-based");
+            n = muter_.increaseVolumeByExeName(targetExe, stepPercent);
+        }
+    } else {
+        Logger::log("Executable-based mode: Adjusting volume for all processes with same executable name");
+        n = muter_.increaseVolumeByExeName(targetExe, stepPercent);
+    }
+    
+    Logger::log(QString("Volume increased for %1 sessions").arg(n));
+}
+
+void MainWindow::onVolumeDownTriggered() {
+    Logger::log("=== Volume Down Hotkey Triggered ===");
+    
+    if (!settingsManager_.getVolumeControlEnabled()) {
+        Logger::log("Volume control is disabled, ignoring");
+        return;
+    }
+    
+    HWND fg = GetForegroundWindow();
+    if (!fg) {
+        Logger::log("Failed to get foreground window");
+        return;
+    }
+    
+    DWORD pid = 0;
+    if (!GetWindowThreadProcessId(fg, &pid)) {
+        Logger::log("Failed to get process ID");
+        return;
+    }
+    
+    QString targetExe = getMainProcessName(pid);
+    Logger::log(QString("Volume down pressed. Target executable: %1 (PID: %2)").arg(targetExe).arg(pid));
+    
+    float stepPercent = settingsManager_.getVolumeStepPercent();
+    int n = 0;
+    
+    // Check if PID-based muting is enabled (reuse the same setting)
+    if (ui->mainProcessOnlyCheck->isChecked()) {
+        Logger::log("PID-based mode: Adjusting volume for specific PID");
+        n = muter_.decreaseVolumeByPID(pid, stepPercent);
+        if (n == 0) {
+            Logger::log("No audio sessions found for specific PID, falling back to executable-based");
+            n = muter_.decreaseVolumeByExeName(targetExe, stepPercent);
+        }
+    } else {
+        Logger::log("Executable-based mode: Adjusting volume for all processes with same executable name");
+        n = muter_.decreaseVolumeByExeName(targetExe, stepPercent);
+    }
+    
+    Logger::log(QString("Volume decreased for %1 sessions").arg(n));
+}
+
+void MainWindow::registerVolumeHotkeys() {
+    bool useHook = settingsManager_.getUseHook();
+    
+    if (useHook) {
+        Logger::log("Using hook-based volume hotkey detection");
+        if (!volumeUpSeq_.isEmpty()) {
+            KeyboardHook::instance().setVolumeUpHotkey(volumeUpSeq_);
+        }
+        if (!volumeDownSeq_.isEmpty()) {
+            KeyboardHook::instance().setVolumeDownHotkey(volumeDownSeq_);
+        }
+        if (!KeyboardHook::instance().isHookInstalled()) {
+            if (KeyboardHook::instance().installHook()) {
+                Logger::log("Volume hotkeys hook registered successfully");
+            } else {
+                Logger::log("Failed to install keyboard hook for volume hotkeys, falling back to RegisterHotKey");
+                registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
+                registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
+            }
+        } else {
+            Logger::log("Hook already installed for volume hotkeys");
+        }
+    } else {
+        Logger::log("Using normal RegisterHotKey volume hotkey detection");
+        registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
+        registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
+    }
+}
+
+void MainWindow::unregisterVolumeHotkeys() {
+    // Clear hook-based hotkeys
+    KeyboardHook::instance().clearVolumeHotkeys();
+    
+    // Unregister normal hotkeys
+    HWND hwnd = (HWND)winId();
+    if (hwnd) {
+        UnregisterHotKey(hwnd, volumeUpHotkeyId_);
+        UnregisterHotKey(hwnd, volumeDownHotkeyId_);
+    }
+    
+    Logger::log("Volume hotkeys unregistered");
+}
+
+void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int hotkeyId) {
+    if (sequence.isEmpty()) {
+        return;
+    }
+    
+    HWND hwnd = (HWND)winId();
+    if (!hwnd) {
+        Logger::log("Cannot register volume hotkey: invalid window handle");
+        return;
+    }
+    
+    QKeyCombination key = sequence[0];
+    if (key.toCombined() == 0) {
+        Logger::log("Cannot register volume hotkey: invalid key code");
+        return;
+    }
+    
+    // Extract modifiers
+    int mods = 0;
+    int keyValue = key.toCombined();
+    if (keyValue & Qt::ShiftModifier) {
+        mods |= MOD_SHIFT;
+    }
+    if (keyValue & Qt::ControlModifier) {
+        mods |= MOD_CONTROL;
+    }
+    if (keyValue & Qt::AltModifier) {
+        mods |= MOD_ALT;
+    }
+    if (keyValue & Qt::MetaModifier) {
+        mods |= MOD_WIN;
+    }
+    
+    // Get the actual key code without modifiers
+    int vk = keyValue & ~Qt::KeyboardModifierMask;
+    
+    // Map Qt key to Windows virtual key code
+    int winVk = 0;
+    if (vk >= Qt::Key_A && vk <= Qt::Key_Z) {
+        winVk = 'A' + (vk - Qt::Key_A);
+    } else if (vk >= Qt::Key_0 && vk <= Qt::Key_9) {
+        winVk = '0' + (vk - Qt::Key_0);
+    } else if (vk >= Qt::Key_F1 && vk <= Qt::Key_F24) {
+        winVk = VK_F1 + (vk - Qt::Key_F1);
+    } else {
+        switch (vk) {
+            case Qt::Key_Space: winVk = VK_SPACE; break;
+            case Qt::Key_Tab: winVk = VK_TAB; break;
+            case Qt::Key_Return: winVk = VK_RETURN; break;
+            case Qt::Key_Escape: winVk = VK_ESCAPE; break;
+            case Qt::Key_Backspace: winVk = VK_BACK; break;
+            case Qt::Key_Delete: winVk = VK_DELETE; break;
+            case Qt::Key_Insert: winVk = VK_INSERT; break;
+            case Qt::Key_Home: winVk = VK_HOME; break;
+            case Qt::Key_End: winVk = VK_END; break;
+            case Qt::Key_PageUp: winVk = VK_PRIOR; break;
+            case Qt::Key_PageDown: winVk = VK_NEXT; break;
+            case Qt::Key_Left: winVk = VK_LEFT; break;
+            case Qt::Key_Right: winVk = VK_RIGHT; break;
+            case Qt::Key_Up: winVk = VK_UP; break;
+            case Qt::Key_Down: winVk = VK_DOWN; break;
+            default: 
+                winVk = vk;
+                break;
+        }
+    }
+    
+    if (winVk == 0) {
+        Logger::log(QString("Failed to map volume hotkey: 0x%1").arg(vk, 0, 16));
+        return;
+    }
+    
+    if (!RegisterHotKey(hwnd, hotkeyId, mods, winVk)) {
+        DWORD error = GetLastError();
+        Logger::log(QString("Failed to register volume hotkey. Error: %1 (0x%2)").arg(error).arg(error, 0, 16));
+    } else {
+        Logger::log(QString("Volume hotkey registered successfully: %1 (ID: 0x%2)").arg(sequence.toString()).arg(hotkeyId, 0, 16));
+    }
 }

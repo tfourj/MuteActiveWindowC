@@ -12,6 +12,8 @@ KeyboardHook::KeyboardHook()
       winPressed_(false) {
     instance_ = this;
     hotkeyData_.isValid = false;
+    volumeUpHotkeyData_.isValid = false;
+    volumeDownHotkeyData_.isValid = false;
 }
 
 KeyboardHook::~KeyboardHook() {
@@ -74,6 +76,42 @@ void KeyboardHook::setHotkey(const QKeySequence& sequence) {
     }
 }
 
+void KeyboardHook::setVolumeUpHotkey(const QKeySequence& sequence) {
+    volumeUpHotkey_ = sequence;
+    volumeUpHotkeyData_ = convertKeySequence(sequence);
+    
+    if (volumeUpHotkeyData_.isValid) {
+        Logger::log(QString("Volume up hotkey set: %1 (VK: 0x%2, Modifiers: 0x%3)")
+                    .arg(sequence.toString())
+                    .arg(volumeUpHotkeyData_.virtualKey, 0, 16)
+                    .arg(volumeUpHotkeyData_.modifiers, 0, 16));
+    } else {
+        Logger::log(QString("Invalid volume up hotkey: %1").arg(sequence.toString()));
+    }
+}
+
+void KeyboardHook::setVolumeDownHotkey(const QKeySequence& sequence) {
+    volumeDownHotkey_ = sequence;
+    volumeDownHotkeyData_ = convertKeySequence(sequence);
+    
+    if (volumeDownHotkeyData_.isValid) {
+        Logger::log(QString("Volume down hotkey set: %1 (VK: 0x%2, Modifiers: 0x%3)")
+                    .arg(sequence.toString())
+                    .arg(volumeDownHotkeyData_.virtualKey, 0, 16)
+                    .arg(volumeDownHotkeyData_.modifiers, 0, 16));
+    } else {
+        Logger::log(QString("Invalid volume down hotkey: %1").arg(sequence.toString()));
+    }
+}
+
+void KeyboardHook::clearVolumeHotkeys() {
+    volumeUpHotkey_ = QKeySequence();
+    volumeDownHotkey_ = QKeySequence();
+    volumeUpHotkeyData_.isValid = false;
+    volumeDownHotkeyData_.isValid = false;
+    Logger::log("Volume hotkeys cleared");
+}
+
 LRESULT CALLBACK KeyboardHook::hookProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (instance_) {
         return instance_->processHook(nCode, wParam, lParam);
@@ -82,7 +120,7 @@ LRESULT CALLBACK KeyboardHook::hookProc(int nCode, WPARAM wParam, LPARAM lParam)
 }
 
 LRESULT KeyboardHook::processHook(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && hotkeyData_.isValid) {
+    if (nCode >= 0) {
         KBDLLHOOKSTRUCT* kbd = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
         bool isKeyUp = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
@@ -101,11 +139,26 @@ LRESULT KeyboardHook::processHook(int nCode, WPARAM wParam, LPARAM lParam) {
                 winPressed_ = isKeyDown;
             }
             
-            // Check if this key matches our hotkey (only on key down)
-            if (isKeyDown && isHotkeyMatch(vk, true)) {
-                Logger::log("Hook detected hotkey match! Emitting signal");
-                emit hotkeyTriggered();
-                // Don't suppress the key - let it pass through
+            // Check if this key matches any of our hotkeys (only on key down)
+            if (isKeyDown) {
+                // Check main hotkey
+                if (hotkeyData_.isValid && isHotkeyMatch(vk, true, hotkeyData_)) {
+                    Logger::log("Hook detected main hotkey match! Emitting signal");
+                    emit hotkeyTriggered();
+                    // Don't suppress the key - let it pass through
+                }
+                // Check volume up hotkey
+                else if (volumeUpHotkeyData_.isValid && isHotkeyMatch(vk, true, volumeUpHotkeyData_)) {
+                    Logger::log("Hook detected volume up hotkey match! Emitting signal");
+                    emit volumeUpTriggered();
+                    // Don't suppress the key - let it pass through
+                }
+                // Check volume down hotkey
+                else if (volumeDownHotkeyData_.isValid && isHotkeyMatch(vk, true, volumeDownHotkeyData_)) {
+                    Logger::log("Hook detected volume down hotkey match! Emitting signal");
+                    emit volumeDownTriggered();
+                    // Don't suppress the key - let it pass through
+                }
             }
         }
     }
@@ -182,21 +235,21 @@ KeyboardHook::HotkeyData KeyboardHook::convertKeySequence(const QKeySequence& se
     return data;
 }
 
-bool KeyboardHook::isHotkeyMatch(int vk, bool isKeyDown) {
-    if (!hotkeyData_.isValid || !isKeyDown) {
+bool KeyboardHook::isHotkeyMatch(int vk, bool isKeyDown, const HotkeyData& data) {
+    if (!data.isValid || !isKeyDown) {
         return false;
     }
     
     // Check if the main key matches
-    if (vk != hotkeyData_.virtualKey) {
+    if (vk != data.virtualKey) {
         return false;
     }
     
     // Check if modifier states match
-    bool needsCtrl = (hotkeyData_.modifiers & MOD_CONTROL) != 0;
-    bool needsAlt = (hotkeyData_.modifiers & MOD_ALT) != 0;
-    bool needsShift = (hotkeyData_.modifiers & MOD_SHIFT) != 0;
-    bool needsWin = (hotkeyData_.modifiers & MOD_WIN) != 0;
+    bool needsCtrl = (data.modifiers & MOD_CONTROL) != 0;
+    bool needsAlt = (data.modifiers & MOD_ALT) != 0;
+    bool needsShift = (data.modifiers & MOD_SHIFT) != 0;
+    bool needsWin = (data.modifiers & MOD_WIN) != 0;
     
     bool ctrlOk = needsCtrl ? ctrlPressed_ : !ctrlPressed_;
     bool altOk = needsAlt ? altPressed_ : !altPressed_;

@@ -28,6 +28,10 @@ public:
     QStringList getExcludedProcesses() const;
     bool getAutoUpdateCheck() const;
     bool getUseHook() const;
+    bool getVolumeControlEnabled() const;
+    QString getVolumeUpHotkey() const;
+    QString getVolumeDownHotkey() const;
+    float getVolumeStepPercent() const;
     
     // Set settings
     void setHotkey(const QString& hotkey);
@@ -39,6 +43,10 @@ public:
     void setShowNotifications(bool enabled);
     void setAutoUpdateCheck(bool enabled);
     void setUseHook(bool enabled);
+    void setVolumeControlEnabled(bool enabled);
+    void setVolumeUpHotkey(const QString& hotkey);
+    void setVolumeDownHotkey(const QString& hotkey);
+    void setVolumeStepPercent(float stepPercent);
     void setExcludedDevices(const QStringList& devices);
     void addExcludedDevice(const QString& device);
     void removeExcludedDevice(const QString& device);

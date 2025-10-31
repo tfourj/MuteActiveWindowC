@@ -95,6 +95,30 @@ void SettingsManager::migrateSettings() {
         Logger::log("Added missing setting 'useHook' with default value: false");
     }
     
+    if (!config_.contains("volumeControlEnabled")) {
+        config_.setVolumeControlEnabled(false); // Default to disabled
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeControlEnabled' with default value: false");
+    }
+    
+    if (!config_.contains("volumeUpHotkey")) {
+        config_.setVolumeUpHotkey(""); // Default to empty
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeUpHotkey' with default value: empty");
+    }
+    
+    if (!config_.contains("volumeDownHotkey")) {
+        config_.setVolumeDownHotkey(""); // Default to empty
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeDownHotkey' with default value: empty");
+    }
+    
+    if (!config_.contains("volumeStepPercent")) {
+        config_.setVolumeStepPercent(5.0); // Default to 5%
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeStepPercent' with default value: 5.0");
+    }
+    
     if (needsSave) {
         config_.save();
         Logger::log("Settings migration completed - new defaults applied");
@@ -137,6 +161,22 @@ bool SettingsManager::getAutoUpdateCheck() const {
 
 bool SettingsManager::getUseHook() const {
     return config_.getUseHook();
+}
+
+bool SettingsManager::getVolumeControlEnabled() const {
+    return config_.getVolumeControlEnabled();
+}
+
+QString SettingsManager::getVolumeUpHotkey() const {
+    return config_.getVolumeUpHotkey();
+}
+
+QString SettingsManager::getVolumeDownHotkey() const {
+    return config_.getVolumeDownHotkey();
+}
+
+float SettingsManager::getVolumeStepPercent() const {
+    return config_.getVolumeStepPercent();
 }
 
 QStringList SettingsManager::getExcludedDevices() const {
@@ -190,6 +230,26 @@ void SettingsManager::setAutoUpdateCheck(bool enabled) {
 
 void SettingsManager::setUseHook(bool enabled) {
     config_.setUseHook(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeControlEnabled(bool enabled) {
+    config_.setVolumeControlEnabled(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeUpHotkey(const QString& hotkey) {
+    config_.setVolumeUpHotkey(hotkey);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeDownHotkey(const QString& hotkey) {
+    config_.setVolumeDownHotkey(hotkey);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeStepPercent(float stepPercent) {
+    config_.setVolumeStepPercent(stepPercent);
     emit settingsChanged();
 }
 

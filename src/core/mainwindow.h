@@ -62,12 +62,19 @@ private slots:
     void onUseHookChanged();
     void checkForUpdates();
     void showHotkeyInfo();
+    void applyVolumeControlSettings();
+    void onVolumeControlEnabledChanged();
+    void onVolumeUpTriggered();
+    void onVolumeDownTriggered();
 
 private:
     void registerHotkey();
     void registerHotkeyNormal();
     void unregisterHotkey();
     void onHotkeyTriggered();
+    void registerVolumeHotkeys();
+    void unregisterVolumeHotkeys();
+    void registerVolumeHotkeyNormal(const QKeySequence& sequence, int hotkeyId);
     void populateDeviceList();
     QString getMainProcessName(DWORD pid);
     QString getUWPAppName(DWORD pid);
@@ -81,6 +88,10 @@ private:
     AudioMuter muter_;
     int hotkeyId_;
     QKeySequence currentSeq_;
+    int volumeUpHotkeyId_;
+    int volumeDownHotkeyId_;
+    QKeySequence volumeUpSeq_;
+    QKeySequence volumeDownSeq_;
     SettingsManager& settingsManager_;
     QSystemTrayIcon* trayIcon_;
     QMenu* trayMenu_;
