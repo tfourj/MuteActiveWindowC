@@ -62,6 +62,14 @@ public:
     void setVolumeDownHotkey(const QString& hotkey);
     float getVolumeStepPercent() const;
     void setVolumeStepPercent(float stepPercent);
+    bool getVolumeControlShowOSD() const;
+    void setVolumeControlShowOSD(bool enabled);
+    QString getVolumeOSDPosition() const;
+    void setVolumeOSDPosition(const QString& position);
+    int getVolumeOSDCustomX() const;
+    void setVolumeOSDCustomX(int x);
+    int getVolumeOSDCustomY() const;
+    void setVolumeOSDCustomY(int y);
     
     // Check if setting exists
     bool contains(const QString& key) const;

@@ -37,6 +37,14 @@ public:
     // stepPercent: volume step as percentage (e.g., 5.0 for 5%)
     // Returns number of sessions adjusted
     int decreaseVolumeByPID(DWORD targetPID, float stepPercent);
+    
+    // Get current volume for process by executable name
+    // Returns average volume (0.0-1.0) of all matching sessions, or -1.0 if not found
+    float getVolumeByExeName(const QString& targetExeName);
+    
+    // Get current volume for process by PID
+    // Returns average volume (0.0-1.0) of all matching sessions, or -1.0 if not found
+    float getVolumeByPID(DWORD targetPID);
 
 private:
     // Toggle all sessions on `device` matching targetExeName
@@ -54,7 +62,8 @@ private:
     int adjustVolumeOnDeviceByPID(IMMDevice *device, DWORD targetPID, float stepPercent);
     
     // Helper: Adjust volume on a single session
-    bool adjustVolumeOnSession(ISimpleAudioVolume *vol, float stepPercent);
+    // Returns new volume (0.0-1.0) on success, -1.0 on failure
+    float adjustVolumeOnSession(ISimpleAudioVolume *vol, float stepPercent);
 
     IMMDeviceEnumerator *enumerator_;
 };

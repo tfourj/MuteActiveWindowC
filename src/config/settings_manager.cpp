@@ -119,6 +119,30 @@ void SettingsManager::migrateSettings() {
         Logger::log("Added missing setting 'volumeStepPercent' with default value: 5.0");
     }
     
+    if (!config_.contains("volumeControlShowOSD")) {
+        config_.setVolumeControlShowOSD(true); // Default to enabled
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeControlShowOSD' with default value: true");
+    }
+    
+    if (!config_.contains("volumeOSDPosition")) {
+        config_.setVolumeOSDPosition("Center"); // Default to center
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeOSDPosition' with default value: Center");
+    }
+    
+    if (!config_.contains("volumeOSDCustomX")) {
+        config_.setVolumeOSDCustomX(-1); // Default to -1 (not set)
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeOSDCustomX' with default value: -1");
+    }
+    
+    if (!config_.contains("volumeOSDCustomY")) {
+        config_.setVolumeOSDCustomY(-1); // Default to -1 (not set)
+        needsSave = true;
+        Logger::log("Added missing setting 'volumeOSDCustomY' with default value: -1");
+    }
+    
     if (needsSave) {
         config_.save();
         Logger::log("Settings migration completed - new defaults applied");
@@ -177,6 +201,22 @@ QString SettingsManager::getVolumeDownHotkey() const {
 
 float SettingsManager::getVolumeStepPercent() const {
     return config_.getVolumeStepPercent();
+}
+
+bool SettingsManager::getVolumeControlShowOSD() const {
+    return config_.getVolumeControlShowOSD();
+}
+
+QString SettingsManager::getVolumeOSDPosition() const {
+    return config_.getVolumeOSDPosition();
+}
+
+int SettingsManager::getVolumeOSDCustomX() const {
+    return config_.getVolumeOSDCustomX();
+}
+
+int SettingsManager::getVolumeOSDCustomY() const {
+    return config_.getVolumeOSDCustomY();
 }
 
 QStringList SettingsManager::getExcludedDevices() const {
@@ -250,6 +290,26 @@ void SettingsManager::setVolumeDownHotkey(const QString& hotkey) {
 
 void SettingsManager::setVolumeStepPercent(float stepPercent) {
     config_.setVolumeStepPercent(stepPercent);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeControlShowOSD(bool enabled) {
+    config_.setVolumeControlShowOSD(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeOSDPosition(const QString& position) {
+    config_.setVolumeOSDPosition(position);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeOSDCustomX(int x) {
+    config_.setVolumeOSDCustomX(x);
+    emit settingsChanged();
+}
+
+void SettingsManager::setVolumeOSDCustomY(int y) {
+    config_.setVolumeOSDCustomY(y);
     emit settingsChanged();
 }
 

@@ -194,6 +194,42 @@ void Config::setVolumeStepPercent(float stepPercent) {
     Logger::log(QString("Volume step percent saved: %1").arg(stepPercent));
 }
 
+bool Config::getVolumeControlShowOSD() const {
+    return settings_.value("volumeControlShowOSD", true).toBool();
+}
+
+void Config::setVolumeControlShowOSD(bool enabled) {
+    settings_.setValue("volumeControlShowOSD", enabled);
+    Logger::log(QString("Volume control show OSD setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
+QString Config::getVolumeOSDPosition() const {
+    return settings_.value("volumeOSDPosition", "Center").toString();
+}
+
+void Config::setVolumeOSDPosition(const QString& position) {
+    settings_.setValue("volumeOSDPosition", position);
+    Logger::log(QString("Volume OSD position saved: %1").arg(position));
+}
+
+int Config::getVolumeOSDCustomX() const {
+    return settings_.value("volumeOSDCustomX", -1).toInt();
+}
+
+void Config::setVolumeOSDCustomX(int x) {
+    settings_.setValue("volumeOSDCustomX", x);
+    Logger::log(QString("Volume OSD custom X saved: %1").arg(x));
+}
+
+int Config::getVolumeOSDCustomY() const {
+    return settings_.value("volumeOSDCustomY", -1).toInt();
+}
+
+void Config::setVolumeOSDCustomY(int y) {
+    settings_.setValue("volumeOSDCustomY", y);
+    Logger::log(QString("Volume OSD custom Y saved: %1").arg(y));
+}
+
 void Config::save() {
     settings_.sync();
     Logger::log("All settings saved to registry");

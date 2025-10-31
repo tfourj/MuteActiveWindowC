@@ -66,6 +66,7 @@ private slots:
     void onVolumeControlEnabledChanged();
     void onVolumeUpTriggered();
     void onVolumeDownTriggered();
+    void setOSDPositionToCursor();
 
 private:
     void registerHotkey();
@@ -75,6 +76,7 @@ private:
     void registerVolumeHotkeys();
     void unregisterVolumeHotkeys();
     void registerVolumeHotkeyNormal(const QKeySequence& sequence, int hotkeyId);
+    void positionVolumeOSD();
     void populateDeviceList();
     QString getMainProcessName(DWORD pid);
     QString getUWPAppName(DWORD pid);

@@ -43,6 +43,7 @@
 #include <algorithm>
 #include "update_manager.h"
 #include "keyboard_hook.h"
+#include "volume_osd.h"
 
 static const QString VERSION = QString(APP_VERSION);
 static constexpr int HOTKEY_ID = 0xBEEF;
@@ -97,8 +98,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&KeyboardHook::instance(), &KeyboardHook::volumeUpTriggered, this, &MainWindow::onVolumeUpTriggered);
     connect(&KeyboardHook::instance(), &KeyboardHook::volumeDownTriggered, this, &MainWindow::onVolumeDownTriggered);
     
-    // Connect volume control checkbox
+    // Connect volume control checkboxes
     connect(ui->volumeControlEnabledCheck, &QCheckBox::toggled, this, &MainWindow::onVolumeControlEnabledChanged);
+    connect(ui->volumeControlShowOSDCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     
     // Setup system tray
     setupSystemTray();
@@ -275,6 +277,23 @@ void MainWindow::loadSettings() {
     float volumeStepPercent = settingsManager_.getVolumeStepPercent();
     ui->volumeStepSpinBox->setValue(volumeStepPercent);
     Logger::log(QString("Loaded volume step percent: %1").arg(volumeStepPercent));
+    
+    bool volumeControlShowOSD = settingsManager_.getVolumeControlShowOSD();
+    ui->volumeControlShowOSDCheck->setChecked(volumeControlShowOSD);
+    Logger::log(QString("Loaded volume control show OSD: %1").arg(volumeControlShowOSD ? "enabled" : "disabled"));
+    
+    QString osdPosition = settingsManager_.getVolumeOSDPosition();
+    int index = ui->volumeOSDPositionComboBox->findText(osdPosition);
+    if (index >= 0) {
+        ui->volumeOSDPositionComboBox->setCurrentIndex(index);
+    }
+    Logger::log(QString("Loaded OSD position: %1").arg(osdPosition));
+    
+    int customX = settingsManager_.getVolumeOSDCustomX();
+    int customY = settingsManager_.getVolumeOSDCustomY();
+    ui->volumeOSDCustomXSpinBox->setValue(customX);
+    ui->volumeOSDCustomYSpinBox->setValue(customY);
+    Logger::log(QString("Loaded OSD custom position: X=%1, Y=%2").arg(customX).arg(customY));
 
     Logger::log("=== Settings Loading Complete ===");
 }
@@ -305,6 +324,9 @@ void MainWindow::saveSettings() {
     
     // Save dark mode setting
     settingsManager_.setDarkMode(ui->darkModeCheck->isChecked());
+    
+    // Save volume control show OSD setting
+    settingsManager_.setVolumeControlShowOSD(ui->volumeControlShowOSDCheck->isChecked());
 
     // Save excluded processes
     QStringList excludedProcesses = collectExcludedProcesses();
@@ -1415,6 +1437,17 @@ void MainWindow::applyVolumeControlSettings() {
     float stepPercent = ui->volumeStepSpinBox->value();
     settingsManager_.setVolumeStepPercent(stepPercent);
     
+    bool showOSD = ui->volumeControlShowOSDCheck->isChecked();
+    settingsManager_.setVolumeControlShowOSD(showOSD);
+    
+    QString osdPosition = ui->volumeOSDPositionComboBox->currentText();
+    settingsManager_.setVolumeOSDPosition(osdPosition);
+    
+    int customX = ui->volumeOSDCustomXSpinBox->value();
+    int customY = ui->volumeOSDCustomYSpinBox->value();
+    settingsManager_.setVolumeOSDCustomX(customX);
+    settingsManager_.setVolumeOSDCustomY(customY);
+    
     // Process volume up hotkey
     QString volumeUpKeyText = ui->volumeUpHotkeyEdit->text().trimmed();
     QString processedVolumeUpKeyText = volumeUpKeyText;
@@ -1527,6 +1560,24 @@ void MainWindow::onVolumeUpTriggered() {
     }
     
     Logger::log(QString("Volume increased for %1 sessions").arg(n));
+    
+    // Show OSD if enabled
+    if (settingsManager_.getVolumeControlShowOSD() && n > 0) {
+        float currentVolume = -1.0f;
+        if (ui->mainProcessOnlyCheck->isChecked()) {
+            currentVolume = muter_.getVolumeByPID(pid);
+            if (currentVolume < 0.0f) {
+                currentVolume = muter_.getVolumeByExeName(targetExe);
+            }
+        } else {
+            currentVolume = muter_.getVolumeByExeName(targetExe);
+        }
+        
+        if (currentVolume >= 0.0f) {
+            positionVolumeOSD();
+            VolumeOSD::instance().showVolumeOSD(targetExe, currentVolume);
+        }
+    }
 }
 
 void MainWindow::onVolumeDownTriggered() {
@@ -1569,6 +1620,24 @@ void MainWindow::onVolumeDownTriggered() {
     }
     
     Logger::log(QString("Volume decreased for %1 sessions").arg(n));
+    
+    // Show OSD if enabled
+    if (settingsManager_.getVolumeControlShowOSD() && n > 0) {
+        float currentVolume = -1.0f;
+        if (ui->mainProcessOnlyCheck->isChecked()) {
+            currentVolume = muter_.getVolumeByPID(pid);
+            if (currentVolume < 0.0f) {
+                currentVolume = muter_.getVolumeByExeName(targetExe);
+            }
+        } else {
+            currentVolume = muter_.getVolumeByExeName(targetExe);
+        }
+        
+        if (currentVolume >= 0.0f) {
+            positionVolumeOSD();
+            VolumeOSD::instance().showVolumeOSD(targetExe, currentVolume);
+        }
+    }
 }
 
 void MainWindow::registerVolumeHotkeys() {
@@ -1612,6 +1681,56 @@ void MainWindow::unregisterVolumeHotkeys() {
     }
     
     Logger::log("Volume hotkeys unregistered");
+}
+
+void MainWindow::positionVolumeOSD() {
+    QString position = settingsManager_.getVolumeOSDPosition();
+    QScreen* screen = QApplication::primaryScreen();
+    if (!screen) {
+        return;
+    }
+    
+    QRect screenGeometry = screen->geometry();
+    int x = -1, y = -1;
+    
+    if (position == "Custom") {
+        x = settingsManager_.getVolumeOSDCustomX();
+        y = settingsManager_.getVolumeOSDCustomY();
+        if (x >= 0 && y >= 0) {
+            VolumeOSD::instance().setCustomPosition(x, y);
+            return;
+        }
+        // Fall through to center if custom not set
+        position = "Center";
+    }
+    
+    int osdWidth = 250;
+    int osdHeight = 60;
+    
+    if (position == "Center") {
+        QPoint center = screenGeometry.center();
+        x = center.x() - osdWidth / 2;
+        y = center.y() - osdHeight / 2;
+    } else if (position == "Top Left") {
+        x = 20;
+        y = 20;
+    } else if (position == "Top Right") {
+        x = screenGeometry.width() - osdWidth - 20;
+        y = 20;
+    } else if (position == "Bottom Left") {
+        x = 20;
+        y = screenGeometry.height() - osdHeight - 20;
+    } else if (position == "Bottom Right") {
+        x = screenGeometry.width() - osdWidth - 20;
+        y = screenGeometry.height() - osdHeight - 20;
+    } else {
+        // Default to center
+        QPoint center = screenGeometry.center();
+        x = center.x() - osdWidth / 2;
+        y = center.y() - osdHeight / 2;
+    }
+    
+    VolumeOSD::instance().setCustomPosition(x, y);
 }
 
 void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int hotkeyId) {
@@ -1692,4 +1811,12 @@ void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int ho
     } else {
         Logger::log(QString("Volume hotkey registered successfully: %1 (ID: 0x%2)").arg(sequence.toString()).arg(hotkeyId, 0, 16));
     }
+}
+
+void MainWindow::setOSDPositionToCursor() {
+    QPoint cursorPos = QCursor::pos();
+    ui->volumeOSDCustomXSpinBox->setValue(cursorPos.x());
+    ui->volumeOSDCustomYSpinBox->setValue(cursorPos.y());
+    ui->volumeOSDPositionComboBox->setCurrentText("Custom");
+    Logger::log(QString("OSD custom position set to cursor: X=%1, Y=%2").arg(cursorPos.x()).arg(cursorPos.y()));
 }

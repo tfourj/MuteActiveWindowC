@@ -636,14 +636,14 @@ int AudioMuter::decreaseVolumeByPID(DWORD targetPID, float stepPercent) {
     return total;
 }
 
-bool AudioMuter::adjustVolumeOnSession(ISimpleAudioVolume *vol, float stepPercent) {
+float AudioMuter::adjustVolumeOnSession(ISimpleAudioVolume *vol, float stepPercent) {
     if (!vol) {
-        return false;
+        return -1.0f;
     }
     
     float currentVolume = 0.0f;
     if (FAILED(vol->GetMasterVolume(&currentVolume))) {
-        return false;
+        return -1.0f;
     }
     
     float stepFloat = stepPercent / 100.0f;
@@ -658,10 +658,10 @@ bool AudioMuter::adjustVolumeOnSession(ISimpleAudioVolume *vol, float stepPercen
     
     if (SUCCEEDED(vol->SetMasterVolume(newVolume, nullptr))) {
         Logger::log(QString("Successfully adjusted volume from %1 to %2").arg(currentVolume).arg(newVolume));
-        return true;
+        return newVolume;
     }
     
-    return false;
+    return -1.0f;
 }
 
 int AudioMuter::adjustVolumeOnDevice(IMMDevice *device, const QString& targetExeName, float stepPercent) {
@@ -746,7 +746,8 @@ int AudioMuter::adjustVolumeOnDevice(IMMDevice *device, const QString& targetExe
             continue;
         }
         
-        if (adjustVolumeOnSession(vol, stepPercent)) {
+        float newVolume = adjustVolumeOnSession(vol, stepPercent);
+        if (newVolume >= 0.0f) {
             ++count;
             Logger::log(QString("Session %1: Successfully adjusted volume for session pid=%2").arg(i).arg(pid));
         } else {
@@ -841,7 +842,8 @@ int AudioMuter::adjustVolumeOnDeviceByPID(IMMDevice *device, DWORD targetPID, fl
             continue;
         }
         
-        if (adjustVolumeOnSession(vol, stepPercent)) {
+        float newVolume = adjustVolumeOnSession(vol, stepPercent);
+        if (newVolume >= 0.0f) {
             ++count;
             Logger::log(QString("Session %1: Successfully adjusted volume for session pid=%2").arg(i).arg(pid));
         } else {
@@ -851,4 +853,248 @@ int AudioMuter::adjustVolumeOnDeviceByPID(IMMDevice *device, DWORD targetPID, fl
     
     Logger::log(QString("adjustVolumeOnDeviceByPID completed: %1 sessions adjusted").arg(count));
     return count;
+}
+
+float AudioMuter::getVolumeByExeName(const QString& targetExeName) {
+    Logger::log(QString("=== getVolumeByExeName called with target EXE: %1 ===").arg(targetExeName));
+    
+    if (!enumerator_) {
+        Logger::log("Enumerator not initialized");
+        return -1.0f;
+    }
+    
+    CComPtr<IMMDeviceCollection> devices;
+    if (FAILED(enumerator_->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &devices))) {
+        Logger::log("Failed to enumerate audio endpoints");
+        return -1.0f;
+    }
+    
+    UINT count = 0;
+    devices->GetCount(&count);
+    Logger::log(QString("Found %1 active render devices").arg(count));
+    
+    float totalVolume = 0.0f;
+    int sessionCount = 0;
+    
+    for (UINT i = 0; i < count; ++i) {
+        CComPtr<IMMDevice> device;
+        if (FAILED(devices->Item(i, &device))) {
+            continue;
+        }
+        
+        CComPtr<IPropertyStore> props;
+        if (FAILED(device->OpenPropertyStore(STGM_READ, &props))) {
+            continue;
+        }
+        
+        PROPVARIANT nameVar;
+        PropVariantInit(&nameVar);
+        if (FAILED(props->GetValue(PKEY_Device_FriendlyName, &nameVar))) {
+            continue;
+        }
+        
+        QString deviceName = QString::fromWCharArray(nameVar.pwszVal);
+        PropVariantClear(&nameVar);
+        
+        if (Config::instance().isDeviceExcluded(deviceName)) {
+            Logger::log(QString("Device '%1' is excluded, skipping").arg(deviceName));
+            continue;
+        }
+        
+        CComPtr<IAudioSessionManager2> mgr2;
+        if (FAILED(device->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, nullptr, (void**)&mgr2))) {
+            continue;
+        }
+        
+        CComPtr<IAudioSessionEnumerator> sessEnum;
+        if (FAILED(mgr2->GetSessionEnumerator(&sessEnum))) {
+            continue;
+        }
+        
+        int n;
+        sessEnum->GetCount(&n);
+        
+        for (int j = 0; j < n; ++j) {
+            CComPtr<IAudioSessionControl> ctl;
+            if (FAILED(sessEnum->GetSession(j, &ctl))) {
+                continue;
+            }
+            
+            CComPtr<IAudioSessionControl2> ctl2;
+            if (FAILED(ctl->QueryInterface(__uuidof(IAudioSessionControl2), (void**)&ctl2))) {
+                continue;
+            }
+            
+            DWORD pid = 0;
+            if (FAILED(ctl2->GetProcessId(&pid))) {
+                continue;
+            }
+            
+            QString exeName = "(unknown)";
+            HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+            if (hProc) {
+                WCHAR buf[MAX_PATH];
+                DWORD len = MAX_PATH;
+                if (QueryFullProcessImageNameW(hProc, 0, buf, &len)) {
+                    exeName = QFileInfo(QString::fromWCharArray(buf)).fileName();
+                }
+                CloseHandle(hProc);
+            }
+            
+            QString processNameWithoutExt = exeName;
+            if (processNameWithoutExt.endsWith(".exe", Qt::CaseInsensitive)) {
+                processNameWithoutExt = processNameWithoutExt.left(processNameWithoutExt.length() - 4);
+            }
+            
+            if (Config::instance().isProcessExcluded(processNameWithoutExt)) {
+                continue;
+            }
+            
+            if (exeName.compare(targetExeName, Qt::CaseInsensitive) != 0) {
+                continue;
+            }
+            
+            CComPtr<ISimpleAudioVolume> vol;
+            if (FAILED(ctl2->QueryInterface(__uuidof(ISimpleAudioVolume), (void**)&vol))) {
+                continue;
+            }
+            
+            float volume = 0.0f;
+            if (SUCCEEDED(vol->GetMasterVolume(&volume))) {
+                totalVolume += volume;
+                ++sessionCount;
+            }
+        }
+    }
+    
+    if (sessionCount > 0) {
+        float avgVolume = totalVolume / sessionCount;
+        Logger::log(QString("getVolumeByExeName completed: Average volume for %1 sessions = %2").arg(sessionCount).arg(avgVolume));
+        return avgVolume;
+    }
+    
+    Logger::log("getVolumeByExeName completed: No matching sessions found");
+    return -1.0f;
+}
+
+float AudioMuter::getVolumeByPID(DWORD targetPID) {
+    Logger::log(QString("=== getVolumeByPID called with target PID: %1 ===").arg(targetPID));
+    
+    if (!enumerator_) {
+        Logger::log("Enumerator not initialized");
+        return -1.0f;
+    }
+    
+    CComPtr<IMMDeviceCollection> devices;
+    if (FAILED(enumerator_->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &devices))) {
+        Logger::log("Failed to enumerate audio endpoints");
+        return -1.0f;
+    }
+    
+    UINT count = 0;
+    devices->GetCount(&count);
+    Logger::log(QString("Found %1 active render devices").arg(count));
+    
+    float totalVolume = 0.0f;
+    int sessionCount = 0;
+    
+    for (UINT i = 0; i < count; ++i) {
+        CComPtr<IMMDevice> device;
+        if (FAILED(devices->Item(i, &device))) {
+            continue;
+        }
+        
+        CComPtr<IPropertyStore> props;
+        if (FAILED(device->OpenPropertyStore(STGM_READ, &props))) {
+            continue;
+        }
+        
+        PROPVARIANT nameVar;
+        PropVariantInit(&nameVar);
+        if (FAILED(props->GetValue(PKEY_Device_FriendlyName, &nameVar))) {
+            continue;
+        }
+        
+        QString deviceName = QString::fromWCharArray(nameVar.pwszVal);
+        PropVariantClear(&nameVar);
+        
+        if (Config::instance().isDeviceExcluded(deviceName)) {
+            Logger::log(QString("Device '%1' is excluded, skipping").arg(deviceName));
+            continue;
+        }
+        
+        CComPtr<IAudioSessionManager2> mgr2;
+        if (FAILED(device->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, nullptr, (void**)&mgr2))) {
+            continue;
+        }
+        
+        CComPtr<IAudioSessionEnumerator> sessEnum;
+        if (FAILED(mgr2->GetSessionEnumerator(&sessEnum))) {
+            continue;
+        }
+        
+        int n;
+        sessEnum->GetCount(&n);
+        
+        for (int j = 0; j < n; ++j) {
+            CComPtr<IAudioSessionControl> ctl;
+            if (FAILED(sessEnum->GetSession(j, &ctl))) {
+                continue;
+            }
+            
+            CComPtr<IAudioSessionControl2> ctl2;
+            if (FAILED(ctl->QueryInterface(__uuidof(IAudioSessionControl2), (void**)&ctl2))) {
+                continue;
+            }
+            
+            DWORD pid = 0;
+            if (FAILED(ctl2->GetProcessId(&pid))) {
+                continue;
+            }
+            
+            if (pid != targetPID) {
+                continue;
+            }
+            
+            QString exeName = "(unknown)";
+            HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+            if (hProc) {
+                WCHAR buf[MAX_PATH];
+                DWORD len = MAX_PATH;
+                if (QueryFullProcessImageNameW(hProc, 0, buf, &len)) {
+                    exeName = QFileInfo(QString::fromWCharArray(buf)).fileName();
+                }
+                CloseHandle(hProc);
+            }
+            
+            QString processNameWithoutExt = exeName;
+            if (processNameWithoutExt.endsWith(".exe", Qt::CaseInsensitive)) {
+                processNameWithoutExt = processNameWithoutExt.left(processNameWithoutExt.length() - 4);
+            }
+            
+            if (Config::instance().isProcessExcluded(processNameWithoutExt)) {
+                continue;
+            }
+            
+            CComPtr<ISimpleAudioVolume> vol;
+            if (FAILED(ctl2->QueryInterface(__uuidof(ISimpleAudioVolume), (void**)&vol))) {
+                continue;
+            }
+            
+            float volume = 0.0f;
+            if (SUCCEEDED(vol->GetMasterVolume(&volume))) {
+                totalVolume += volume;
+                ++sessionCount;
+            }
+        }
+    }
+    
+    if (sessionCount > 0) {
+        float avgVolume = totalVolume / sessionCount;
+        Logger::log(QString("getVolumeByPID completed: Average volume for %1 sessions = %2").arg(sessionCount).arg(avgVolume));
+        return avgVolume;
+    }
+    
+    Logger::log("getVolumeByPID completed: No matching sessions found");
+    return -1.0f;
 }

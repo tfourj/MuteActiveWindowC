@@ -510,6 +510,19 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="volumeControlShowOSDCheck">
+          <property name="toolTip">
+           <string>Show on-screen display with process name and current volume when adjusting volume using hotkeys.</string>
+          </property>
+          <property name="text">
+           <string>Show OSD (On-Screen Display)</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QLabel" name="volumeUpHotkeyLabel">
           <property name="text">
            <string>Volume Up Hotkey (e.g., Ctrl+Up):</string>
@@ -591,6 +604,111 @@
              </size>
             </property>
            </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="volumeOSDPositionLabel">
+          <property name="text">
+           <string>OSD Position:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="volumeOSDPositionLayout">
+          <item>
+           <widget class="QComboBox" name="volumeOSDPositionComboBox">
+            <item>
+             <property name="text">
+              <string>Center</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Top Left</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Top Right</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Bottom Left</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Bottom Right</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Custom</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="volumeOSDCustomPositionLayout">
+          <item>
+           <widget class="QLabel" name="volumeOSDCustomXLabel">
+            <property name="text">
+             <string>Custom X:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="volumeOSDCustomXSpinBox">
+            <property name="minimum">
+             <number>-1</number>
+            </property>
+            <property name="maximum">
+             <number>10000</number>
+            </property>
+            <property name="value">
+             <number>-1</number>
+            </property>
+            <property name="toolTip">
+             <string>Custom X position for OSD. Set to -1 to disable custom position.</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="volumeOSDCustomYLabel">
+            <property name="text">
+             <string>Custom Y:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="volumeOSDCustomYSpinBox">
+            <property name="minimum">
+             <number>-1</number>
+            </property>
+            <property name="maximum">
+             <number>10000</number>
+            </property>
+            <property name="value">
+             <number>-1</number>
+            </property>
+            <property name="toolTip">
+             <string>Custom Y position for OSD. Set to -1 to disable custom position.</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="setOSDPositionToCursorButton">
+            <property name="text">
+             <string>Set to Cursor</string>
+            </property>
+            <property name="toolTip">
+             <string>Set custom position to current mouse cursor position.</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
