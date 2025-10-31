@@ -105,8 +105,8 @@ private:
     QTimer* clickDetectionTimer_;
     bool waitingForClick_;
     QMessageBox* clickDetectionMessageBox_;
+    HWND clickDetectionMessageBoxHandle_;
     static MainWindow* clickDetectionInstance_;
     static LRESULT CALLBACK mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
     void cleanupClickDetection();
-    void onClickDetectionTimeout();
 };
