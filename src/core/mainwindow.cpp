@@ -1839,12 +1839,9 @@ void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int ho
 
 LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0 && clickDetectionInstance_) {
-        // Check if object is still valid and if message box is still visible
-        // Only detect clicks while the message box is shown
-        if (clickDetectionInstance_->waitingForClick_ && 
-            clickDetectionInstance_->clickDetectionMessageBox_ &&
-            clickDetectionInstance_->clickDetectionMessageBox_->isVisible() &&
-            wParam == WM_LBUTTONDOWN) {
+        // Check if waiting for click - use only thread-safe members (no Qt widget access)
+        // Only detect clicks while waitingForClick_ is true (set/unset on main thread)
+        if (clickDetectionInstance_->waitingForClick_ && wParam == WM_LBUTTONDOWN) {
             MSLLHOOKSTRUCT* mouseData = reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
             int x = mouseData->pt.x;
             int y = mouseData->pt.y;
@@ -1871,13 +1868,16 @@ LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lPar
             // Store instance pointer locally (hook callback runs on different thread)
             MainWindow* instance = clickDetectionInstance_;
             
-            // Cleanup hook and timer (do this from hook thread, but UI operations must be on main thread)
-            if (instance->mouseHookHandle_) {
-                UnhookWindowsHookEx(instance->mouseHookHandle_);
+            // Set waiting flag to false to prevent duplicate detections
+            instance->waitingForClick_ = false;
+            
+            // Cleanup hook (do this from hook thread, but UI operations must be on main thread)
+            // Don't log here - log messages from hook thread may not appear immediately
+            HHOOK hookToUnhook = instance->mouseHookHandle_;
+            if (hookToUnhook) {
+                UnhookWindowsHookEx(hookToUnhook);
                 instance->mouseHookHandle_ = nullptr;
             }
-            
-            instance->waitingForClick_ = false;
             
             // Post event to main thread to handle UI operations
             // Use Qt::QueuedConnection to safely handle if MainWindow is destroyed before this executes
@@ -1899,7 +1899,7 @@ void MainWindow::cleanupClickDetection() {
     if (mouseHookHandle_) {
         UnhookWindowsHookEx(mouseHookHandle_);
         mouseHookHandle_ = nullptr;
-        Logger::log("Mouse hook uninstalled");
+        Logger::log("Mouse hook uninstalled in cleanupClickDetection");
     }
     
     if (clickDetectionTimer_) {
@@ -1908,8 +1908,17 @@ void MainWindow::cleanupClickDetection() {
         clickDetectionTimer_ = nullptr;
     }
     
+    // Safely clean up message box - disconnect first, then close, then delete
     if (clickDetectionMessageBox_) {
-        clickDetectionMessageBox_->close();
+        // Disconnect any signals to prevent callbacks during deletion
+        clickDetectionMessageBox_->disconnect();
+        
+        // Close the message box if it's still visible
+        if (clickDetectionMessageBox_->isVisible()) {
+            clickDetectionMessageBox_->hide();
+        }
+        
+        // Schedule for deletion (Qt will delete it when safe)
         clickDetectionMessageBox_->deleteLater();
         clickDetectionMessageBox_ = nullptr;
     }
@@ -1922,8 +1931,35 @@ void MainWindow::onMouseClickDetected(int x, int y) {
     // This is called on the main thread via QMetaObject::invokeMethod
     // Now we can safely use Qt UI components
     
-    // Cleanup click detection first
-    cleanupClickDetection();
+    // Stop waiting for clicks
+    waitingForClick_ = false;
+    
+    // Unhook if still hooked (might already be unhooked by hook callback)
+    if (mouseHookHandle_) {
+        UnhookWindowsHookEx(mouseHookHandle_);
+        mouseHookHandle_ = nullptr;
+        Logger::log("Mouse hook uninstalled after click detection");
+    } else {
+        Logger::log("Mouse hook already uninstalled (was unhooked in callback)");
+    }
+    
+    // Clean up message box safely
+    if (clickDetectionMessageBox_) {
+        // Disconnect signals first
+        clickDetectionMessageBox_->disconnect();
+        
+        // Hide the message box
+        if (clickDetectionMessageBox_->isVisible()) {
+            clickDetectionMessageBox_->hide();
+        }
+        
+        // Delete later (Qt will handle it safely)
+        clickDetectionMessageBox_->deleteLater();
+        clickDetectionMessageBox_ = nullptr;
+    }
+    
+    clickDetectionMessageBoxHandle_ = nullptr;
+    clickDetectionInstance_ = nullptr;
     
     // Show confirmation dialog
     QMessageBox::StandardButton reply = QMessageBox::question(
@@ -1981,7 +2017,25 @@ void MainWindow::setOSDPositionToCursor() {
     // Connect Cancel button to cleanup
     connect(clickDetectionMessageBox_, &QMessageBox::rejected, this, [this]() {
         Logger::log("Click detection cancelled by user");
-        cleanupClickDetection();
+        
+        // Stop waiting and unhook
+        waitingForClick_ = false;
+        
+        if (mouseHookHandle_) {
+            UnhookWindowsHookEx(mouseHookHandle_);
+            mouseHookHandle_ = nullptr;
+            Logger::log("Mouse hook uninstalled after cancel");
+        }
+        
+        // Clean up message box safely
+        if (clickDetectionMessageBox_) {
+            clickDetectionMessageBox_->disconnect();
+            clickDetectionMessageBox_->hide();
+            clickDetectionMessageBox_->deleteLater();
+            clickDetectionMessageBox_ = nullptr;
+        }
+        
+        clickDetectionMessageBoxHandle_ = nullptr;
         clickDetectionInstance_ = nullptr;
     });
     
