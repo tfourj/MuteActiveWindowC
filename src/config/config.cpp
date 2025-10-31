@@ -158,6 +158,78 @@ void Config::setUseHook(bool enabled) {
     Logger::log(QString("Use hook setting saved: %1").arg(enabled ? "enabled" : "disabled"));
 }
 
+bool Config::getVolumeControlEnabled() const {
+    return settings_.value("volumeControlEnabled", false).toBool();
+}
+
+void Config::setVolumeControlEnabled(bool enabled) {
+    settings_.setValue("volumeControlEnabled", enabled);
+    Logger::log(QString("Volume control enabled setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
+QString Config::getVolumeUpHotkey() const {
+    return settings_.value("volumeUpHotkey", "").toString();
+}
+
+void Config::setVolumeUpHotkey(const QString& hotkey) {
+    settings_.setValue("volumeUpHotkey", hotkey);
+    Logger::log(QString("Volume up hotkey saved: %1").arg(hotkey));
+}
+
+QString Config::getVolumeDownHotkey() const {
+    return settings_.value("volumeDownHotkey", "").toString();
+}
+
+void Config::setVolumeDownHotkey(const QString& hotkey) {
+    settings_.setValue("volumeDownHotkey", hotkey);
+    Logger::log(QString("Volume down hotkey saved: %1").arg(hotkey));
+}
+
+float Config::getVolumeStepPercent() const {
+    return settings_.value("volumeStepPercent", 5.0).toFloat();
+}
+
+void Config::setVolumeStepPercent(float stepPercent) {
+    settings_.setValue("volumeStepPercent", stepPercent);
+    Logger::log(QString("Volume step percent saved: %1").arg(stepPercent));
+}
+
+bool Config::getVolumeControlShowOSD() const {
+    return settings_.value("volumeControlShowOSD", true).toBool();
+}
+
+void Config::setVolumeControlShowOSD(bool enabled) {
+    settings_.setValue("volumeControlShowOSD", enabled);
+    Logger::log(QString("Volume control show OSD setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
+QString Config::getVolumeOSDPosition() const {
+    return settings_.value("volumeOSDPosition", "Center").toString();
+}
+
+void Config::setVolumeOSDPosition(const QString& position) {
+    settings_.setValue("volumeOSDPosition", position);
+    Logger::log(QString("Volume OSD position saved: %1").arg(position));
+}
+
+int Config::getVolumeOSDCustomX() const {
+    return settings_.value("volumeOSDCustomX", -1).toInt();
+}
+
+void Config::setVolumeOSDCustomX(int x) {
+    settings_.setValue("volumeOSDCustomX", x);
+    Logger::log(QString("Volume OSD custom X saved: %1").arg(x));
+}
+
+int Config::getVolumeOSDCustomY() const {
+    return settings_.value("volumeOSDCustomY", -1).toInt();
+}
+
+void Config::setVolumeOSDCustomY(int y) {
+    settings_.setValue("volumeOSDCustomY", y);
+    Logger::log(QString("Volume OSD custom Y saved: %1").arg(y));
+}
+
 void Config::save() {
     settings_.sync();
     Logger::log("All settings saved to registry");
@@ -173,6 +245,10 @@ void Config::save() {
     Logger::log(QString("  Show notifications: %1").arg(getShowNotifications() ? "enabled" : "disabled"));
     Logger::log(QString("  Auto-update check: %1").arg(getAutoUpdateCheck() ? "enabled" : "disabled"));
     Logger::log(QString("  Use hook: %1").arg(getUseHook() ? "enabled" : "disabled"));
+    Logger::log(QString("  Volume control enabled: %1").arg(getVolumeControlEnabled() ? "enabled" : "disabled"));
+    Logger::log(QString("  Volume up hotkey: %1").arg(getVolumeUpHotkey()));
+    Logger::log(QString("  Volume down hotkey: %1").arg(getVolumeDownHotkey()));
+    Logger::log(QString("  Volume step percent: %1").arg(getVolumeStepPercent()));
     Logger::log(QString("  Excluded devices: %1").arg(getExcludedDevices().join(", ")));
     Logger::log(QString("  Excluded processes: %1").arg(getExcludedProcesses().join(", ")));
 }

@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QSystemTrayIcon>
 #include <QMenu>
+#include <QTimer>
 #include <atlbase.h>
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
@@ -62,12 +63,22 @@ private slots:
     void onUseHookChanged();
     void checkForUpdates();
     void showHotkeyInfo();
+    void applyVolumeControlSettings();
+    void onVolumeControlEnabledChanged();
+    void onVolumeUpTriggered();
+    void onVolumeDownTriggered();
+    void setOSDPositionToCursor();
+    void onMouseClickDetected(int x, int y);
 
 private:
     void registerHotkey();
     void registerHotkeyNormal();
     void unregisterHotkey();
     void onHotkeyTriggered();
+    void registerVolumeHotkeys();
+    void unregisterVolumeHotkeys();
+    void registerVolumeHotkeyNormal(const QKeySequence& sequence, int hotkeyId);
+    void positionVolumeOSD();
     void populateDeviceList();
     QString getMainProcessName(DWORD pid);
     QString getUWPAppName(DWORD pid);
@@ -81,7 +92,21 @@ private:
     AudioMuter muter_;
     int hotkeyId_;
     QKeySequence currentSeq_;
+    int volumeUpHotkeyId_;
+    int volumeDownHotkeyId_;
+    QKeySequence volumeUpSeq_;
+    QKeySequence volumeDownSeq_;
     SettingsManager& settingsManager_;
     QSystemTrayIcon* trayIcon_;
     QMenu* trayMenu_;
+    
+    // For mouse click detection
+    HHOOK mouseHookHandle_;
+    QTimer* clickDetectionTimer_;
+    bool waitingForClick_;
+    QMessageBox* clickDetectionMessageBox_;
+    HWND clickDetectionMessageBoxHandle_;
+    static MainWindow* clickDetectionInstance_;
+    static LRESULT CALLBACK mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+    void cleanupClickDetection();
 };

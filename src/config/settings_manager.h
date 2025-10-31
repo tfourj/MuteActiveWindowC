@@ -28,6 +28,14 @@ public:
     QStringList getExcludedProcesses() const;
     bool getAutoUpdateCheck() const;
     bool getUseHook() const;
+    bool getVolumeControlEnabled() const;
+    QString getVolumeUpHotkey() const;
+    QString getVolumeDownHotkey() const;
+    float getVolumeStepPercent() const;
+    bool getVolumeControlShowOSD() const;
+    QString getVolumeOSDPosition() const;
+    int getVolumeOSDCustomX() const;
+    int getVolumeOSDCustomY() const;
     
     // Set settings
     void setHotkey(const QString& hotkey);
@@ -39,6 +47,14 @@ public:
     void setShowNotifications(bool enabled);
     void setAutoUpdateCheck(bool enabled);
     void setUseHook(bool enabled);
+    void setVolumeControlEnabled(bool enabled);
+    void setVolumeUpHotkey(const QString& hotkey);
+    void setVolumeDownHotkey(const QString& hotkey);
+    void setVolumeStepPercent(float stepPercent);
+    void setVolumeControlShowOSD(bool enabled);
+    void setVolumeOSDPosition(const QString& position);
+    void setVolumeOSDCustomX(int x);
+    void setVolumeOSDCustomY(int y);
     void setExcludedDevices(const QStringList& devices);
     void addExcludedDevice(const QString& device);
     void removeExcludedDevice(const QString& device);
