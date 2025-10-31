@@ -101,7 +101,7 @@ void VolumeOSD::showVolumeOSD(const QString& processName, float volumePercent) {
     raise();
     
     // Fade in animation
-    QPropertyAnimation* fadeIn = new QPropertyAnimation(this, "windowOpacity");
+    QPropertyAnimation* fadeIn = new QPropertyAnimation(this, "windowOpacity", this);
     fadeIn->setDuration(200);
     fadeIn->setStartValue(0.0);
     fadeIn->setEndValue(0.95);
@@ -135,7 +135,7 @@ void VolumeOSD::setCustomPosition(int x, int y) {
 
 void VolumeOSD::hideAfterDelay() {
     // Fade out animation
-    QPropertyAnimation* fadeOut = new QPropertyAnimation(this, "windowOpacity");
+    QPropertyAnimation* fadeOut = new QPropertyAnimation(this, "windowOpacity", this);
     fadeOut->setDuration(200);
     fadeOut->setStartValue(windowOpacity());
     fadeOut->setEndValue(0.0);

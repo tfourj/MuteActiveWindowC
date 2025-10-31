@@ -171,7 +171,11 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 MainWindow::~MainWindow() {
-    // Cleanup click detection if active
+    // Cleanup click detection if active - must be first to prevent race condition
+    waitingForClick_ = false;
+    if (clickDetectionInstance_ == this) {
+        clickDetectionInstance_ = nullptr;
+    }
     cleanupClickDetection();
     unregisterHotkey();
     
@@ -1820,22 +1824,28 @@ void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int ho
 }
 
 LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && clickDetectionInstance_ && clickDetectionInstance_->waitingForClick_) {
-        if (wParam == WM_LBUTTONDOWN) {
+    if (nCode >= 0 && clickDetectionInstance_) {
+        // Check if object is still valid by checking waitingForClick_ flag
+        // If MainWindow was destroyed, this might access invalid memory, but we check instance first
+        if (clickDetectionInstance_->waitingForClick_ && wParam == WM_LBUTTONDOWN) {
             MSLLHOOKSTRUCT* mouseData = reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
             int x = mouseData->pt.x;
             int y = mouseData->pt.y;
             
+            // Store instance pointer locally (hook callback runs on different thread)
+            MainWindow* instance = clickDetectionInstance_;
+            
             // Cleanup hook and timer (do this from hook thread, but UI operations must be on main thread)
-            if (clickDetectionInstance_->mouseHookHandle_) {
-                UnhookWindowsHookEx(clickDetectionInstance_->mouseHookHandle_);
-                clickDetectionInstance_->mouseHookHandle_ = nullptr;
+            if (instance->mouseHookHandle_) {
+                UnhookWindowsHookEx(instance->mouseHookHandle_);
+                instance->mouseHookHandle_ = nullptr;
             }
             
-            clickDetectionInstance_->waitingForClick_ = false;
+            instance->waitingForClick_ = false;
             
             // Post event to main thread to handle UI operations
-            QMetaObject::invokeMethod(clickDetectionInstance_, "onMouseClickDetected", 
+            // Use Qt::QueuedConnection to safely handle if MainWindow is destroyed before this executes
+            QMetaObject::invokeMethod(instance, "onMouseClickDetected", 
                                       Qt::QueuedConnection,
                                       Q_ARG(int, x), 
                                       Q_ARG(int, y));
@@ -1904,8 +1914,11 @@ void MainWindow::onClickDetectionTimeout() {
 }
 
 void MainWindow::setOSDPositionToCursor() {
-    // Cleanup any existing click detection
+    // Cleanup any existing click detection (ensure timer is fully cleaned up)
     cleanupClickDetection();
+    
+    // Wait a moment for any pending deleteLater() operations to complete
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
     
     // Show message that user has 5 seconds to click
     QMessageBox msgBox(this);
@@ -1933,7 +1946,14 @@ void MainWindow::setOSDPositionToCursor() {
     
     Logger::log("Mouse hook installed for click detection");
     
-    // Create timer for 5 second timeout
+    // Create timer for 5 second timeout (ensure previous one is gone)
+    if (clickDetectionTimer_) {
+        clickDetectionTimer_->stop();
+        clickDetectionTimer_->deleteLater();
+        clickDetectionTimer_ = nullptr;
+        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    }
+    
     clickDetectionTimer_ = new QTimer(this);
     clickDetectionTimer_->setSingleShot(true);
     connect(clickDetectionTimer_, &QTimer::timeout, this, &MainWindow::onClickDetectionTimeout);
