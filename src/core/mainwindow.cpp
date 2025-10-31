@@ -261,6 +261,12 @@ void MainWindow::loadSettings() {
     ui->volumeControlEnabledCheck->setChecked(volumeControlEnabled);
     Logger::log(QString("Loaded volume control enabled setting: %1").arg(volumeControlEnabled ? "enabled" : "disabled"));
     
+    // Show/hide volume control tab based on setting
+    int tabIndex = ui->tabWidget->indexOf(ui->volumeControlTab);
+    if (tabIndex >= 0) {
+        ui->tabWidget->setTabVisible(tabIndex, volumeControlEnabled);
+    }
+    
     QString volumeUpHotkey = settingsManager_.getVolumeUpHotkey();
     volumeUpSeq_ = QKeySequence::fromString(volumeUpHotkey);
     QString volumeUpDisplayText = volumeUpSeq_.toString();
@@ -1519,6 +1525,12 @@ void MainWindow::applyVolumeControlSettings() {
 void MainWindow::onVolumeControlEnabledChanged() {
     bool enabled = ui->volumeControlEnabledCheck->isChecked();
     settingsManager_.setVolumeControlEnabled(enabled);
+    
+    // Show/hide volume control tab based on checkbox state
+    int tabIndex = ui->tabWidget->indexOf(ui->volumeControlTab);
+    if (tabIndex >= 0) {
+        ui->tabWidget->setTabVisible(tabIndex, enabled);
+    }
     
     if (enabled) {
         registerVolumeHotkeys();
