@@ -7,6 +7,7 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <atlbase.h>
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
@@ -109,4 +110,8 @@ private:
     static MainWindow* clickDetectionInstance_;
     static LRESULT CALLBACK mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
     void cleanupClickDetection();
+    
+    // For volume adjustment debouncing
+    QElapsedTimer lastVolumeAdjustTime_;
+    static const int VOLUME_DEBOUNCE_MS = 150; // Debounce delay in milliseconds
 };

@@ -1549,6 +1549,15 @@ void MainWindow::onVolumeUpTriggered() {
         return;
     }
     
+    // Debounce: Check if enough time has passed since last adjustment
+    if (lastVolumeAdjustTime_.isValid() && lastVolumeAdjustTime_.elapsed() < VOLUME_DEBOUNCE_MS) {
+        Logger::log(QString("Volume adjustment debounced: only %1ms since last adjustment (need %2ms)").arg(lastVolumeAdjustTime_.elapsed()).arg(VOLUME_DEBOUNCE_MS));
+        return;
+    }
+    
+    // Start or restart the timer
+    lastVolumeAdjustTime_.restart();
+    
     HWND fg = GetForegroundWindow();
     if (!fg) {
         Logger::log("Failed to get foreground window");
@@ -1608,6 +1617,15 @@ void MainWindow::onVolumeDownTriggered() {
         Logger::log("Volume control is disabled, ignoring");
         return;
     }
+    
+    // Debounce: Check if enough time has passed since last adjustment
+    if (lastVolumeAdjustTime_.isValid() && lastVolumeAdjustTime_.elapsed() < VOLUME_DEBOUNCE_MS) {
+        Logger::log(QString("Volume adjustment debounced: only %1ms since last adjustment (need %2ms)").arg(lastVolumeAdjustTime_.elapsed()).arg(VOLUME_DEBOUNCE_MS));
+        return;
+    }
+    
+    // Start or restart the timer
+    lastVolumeAdjustTime_.restart();
     
     HWND fg = GetForegroundWindow();
     if (!fg) {
