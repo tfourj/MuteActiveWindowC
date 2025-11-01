@@ -8,7 +8,7 @@
 
 VolumeOSD* VolumeOSD::instance_ = nullptr;
 
-VolumeOSD::VolumeOSD() : contentLabel_(nullptr), hideTimer_(nullptr) {
+VolumeOSD::VolumeOSD() : contentLabel_(nullptr), hideTimer_(nullptr), isCurrentlyVisible_(false), currentFadeAnimation_(nullptr) {
     instance_ = this;
     
     // Set window flags for overlay
@@ -95,7 +95,34 @@ void VolumeOSD::showVolumeOSD(const QString& processName, float volumePercent) {
     
     // Position will be set by MainWindow before showing
     
-    // Show with fade-in
+    // Check if OSD is already visible
+    if (isCurrentlyVisible_ && isVisible()) {
+        // OSD is already on screen - just update text, no fade animation
+        // Stop any ongoing animation
+        if (currentFadeAnimation_) {
+            currentFadeAnimation_->stop();
+            // Restore full opacity if we were fading
+            setWindowOpacity(0.95);
+        }
+        currentFadeAnimation_.clear();
+        
+        // Reset hide timer
+        hideTimer_->stop();
+        hideTimer_->start(1000); // Show for 1 second
+        
+        Logger::log(QString("Volume OSD updated: %1 at %2%").arg(processName).arg(qRound(volumePercent * 100.0f)));
+        return;
+    }
+    
+    // First time showing or was hidden - show with fade-in
+    isCurrentlyVisible_ = true;
+    
+    // Stop any ongoing animation
+    if (currentFadeAnimation_) {
+        currentFadeAnimation_->stop();
+    }
+    currentFadeAnimation_.clear();
+    
     setWindowOpacity(0.0);
     show();
     raise();
@@ -106,10 +133,11 @@ void VolumeOSD::showVolumeOSD(const QString& processName, float volumePercent) {
     fadeIn->setStartValue(0.0);
     fadeIn->setEndValue(0.95);
     fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+    currentFadeAnimation_ = fadeIn;
     
     // Hide after delay
     hideTimer_->stop();
-    hideTimer_->start(2000); // Show for 2 seconds
+    hideTimer_->start(1000); // Show for 1 second
     
     Logger::log(QString("Volume OSD shown: %1 at %2%").arg(processName).arg(qRound(volumePercent * 100.0f)));
 }
@@ -134,6 +162,20 @@ void VolumeOSD::setCustomPosition(int x, int y) {
 }
 
 void VolumeOSD::hideAfterDelay() {
+    // Only hide if still marked as visible (prevent hiding if updated during delay)
+    if (!isCurrentlyVisible_) {
+        return;
+    }
+    
+    // Mark as no longer visible
+    isCurrentlyVisible_ = false;
+    
+    // Stop any ongoing animation
+    if (currentFadeAnimation_) {
+        currentFadeAnimation_->stop();
+    }
+    currentFadeAnimation_.clear();
+    
     // Fade out animation
     QPropertyAnimation* fadeOut = new QPropertyAnimation(this, "windowOpacity", this);
     fadeOut->setDuration(200);
@@ -141,5 +183,6 @@ void VolumeOSD::hideAfterDelay() {
     fadeOut->setEndValue(0.0);
     connect(fadeOut, &QPropertyAnimation::finished, this, &QWidget::hide);
     fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
+    currentFadeAnimation_ = fadeOut;
 }
 

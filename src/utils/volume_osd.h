@@ -3,6 +3,8 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QTimer>
+#include <QPropertyAnimation>
+#include <QPointer>
 
 class VolumeOSD : public QWidget {
     Q_OBJECT
@@ -23,6 +25,8 @@ private:
     
     QLabel* contentLabel_;
     QTimer* hideTimer_;
+    bool isCurrentlyVisible_;
+    QPointer<QPropertyAnimation> currentFadeAnimation_;
     
     static VolumeOSD* instance_;
 };
