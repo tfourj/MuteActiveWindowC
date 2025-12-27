@@ -18,18 +18,32 @@ set "SCRIPT_DIR=%~dp0"
 set "NSIS_SCRIPT=%SCRIPT_DIR%installer\installer.nsi"
 set "INSTALLER_DIR=%SCRIPT_DIR%temp_installer"
 set "MuteActiveWindowC_COPY_DIR=%INSTALLER_DIR%\MuteActiveWindowC"
-set "MAKENSIS_PATH=D:\Programi\NSIS\makensis.exe"
-
-echo [INFO] Using deploy directory: %APP_BUILD_DIR%
 echo [INFO] Using version: %VERSION%
 echo [INFO] Using NSIS script: %NSIS_SCRIPT%
 
-REM === Check if makensis exists ===
-if not exist "%MAKENSIS_PATH%" (
-    echo [ERROR] makensis.exe not found at "%MAKENSIS_PATH%"
+REM === Locate makensis.exe (PATH first, fallback to hardcoded) ===
+set "MAKENSIS_PATH="
+
+REM Try PATH
+for /f "delims=" %%i in ('where makensis 2^>nul') do (
+    set "MAKENSIS_PATH=%%i"
+    goto :makensis_found
+)
+
+REM Fallback path
+if exist "C:\Program Files (x86)\NSIS\makensis.exe" (
+    set "MAKENSIS_PATH=C:\Program Files (x86)\NSIS\makensis.exe"
+)
+
+:makensis_found
+if not defined MAKENSIS_PATH (
+    echo [ERROR] makensis.exe not found
+    echo [HINT] Install NSIS and add it to PATH
     pause
     exit /b 1
 )
+
+echo [INFO] Using makensis: %MAKENSIS_PATH%
 
 REM === Remove old MuteActiveWindowC folder if exists ===
 if exist "%MuteActiveWindowC_COPY_DIR%" (
