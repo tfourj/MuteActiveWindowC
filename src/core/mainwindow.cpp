@@ -102,6 +102,9 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), volumeUpHotkeyId_(VOLUME_UP_HOTKEY_ID), volumeDownHotkeyId_(VOLUME_DOWN_HOTKEY_ID), adminRestartHotkeyId_(ADMIN_RESTART_HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr), mouseHookHandle_(nullptr), clickDetectionTimer_(nullptr), waitingForClick_(false), clickDetectionMessageBox_(nullptr), clickDetectionMessageBoxHandle_(nullptr) {
     Logger::log("=== MainWindow Constructor ===");
     ui->setupUi(this);
+    if (isRunningAsAdmin()) {
+        setWindowTitle("MuteActiveWindow (Administrator)");
+    }
 
     ui->excludedProcessesTable->verticalHeader()->setVisible(false);
     ui->excludedProcessesTable->horizontalHeader()->setStretchLastSection(true);
