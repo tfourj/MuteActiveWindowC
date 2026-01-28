@@ -68,12 +68,14 @@ private slots:
     void onVolumeControlEnabledChanged();
     void onVolumeUpTriggered();
     void onVolumeDownTriggered();
+    void onAdminRestartTriggered();
     void setOSDPositionToCursor();
     void onMouseClickDetected(int x, int y);
 
 private:
     void registerHotkey();
     void registerHotkeyNormal();
+    void registerAdminRestartHotkeyNormal(const QKeySequence& sequence, int hotkeyId);
     void unregisterHotkey();
     void onHotkeyTriggered();
     void registerVolumeHotkeys();
@@ -95,8 +97,10 @@ private:
     QKeySequence currentSeq_;
     int volumeUpHotkeyId_;
     int volumeDownHotkeyId_;
+    int adminRestartHotkeyId_;
     QKeySequence volumeUpSeq_;
     QKeySequence volumeDownSeq_;
+    QKeySequence adminRestartSeq_;
     SettingsManager& settingsManager_;
     QSystemTrayIcon* trayIcon_;
     QMenu* trayMenu_;

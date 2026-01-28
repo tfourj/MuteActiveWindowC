@@ -28,6 +28,8 @@ public:
     QStringList getExcludedProcesses() const;
     bool getAutoUpdateCheck() const;
     bool getUseHook() const;
+    bool getAdminRestartHotkeyEnabled() const;
+    QString getAdminRestartHotkey() const;
     bool getVolumeControlEnabled() const;
     QString getVolumeUpHotkey() const;
     QString getVolumeDownHotkey() const;
@@ -47,6 +49,8 @@ public:
     void setShowNotifications(bool enabled);
     void setAutoUpdateCheck(bool enabled);
     void setUseHook(bool enabled);
+    void setAdminRestartHotkeyEnabled(bool enabled);
+    void setAdminRestartHotkey(const QString& hotkey);
     void setVolumeControlEnabled(bool enabled);
     void setVolumeUpHotkey(const QString& hotkey);
     void setVolumeDownHotkey(const QString& hotkey);

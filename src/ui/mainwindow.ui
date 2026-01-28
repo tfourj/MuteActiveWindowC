@@ -83,6 +83,37 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="adminRestartHotkeyEnabledCheck">
+          <property name="toolTip">
+           <string>Enable a hotkey that restarts this app with administrator privileges.</string>
+          </property>
+          <property name="text">
+           <string>Enable admin restart hotkey</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="adminRestartHotkeyLabel">
+          <property name="text">
+           <string>Admin Restart Hotkey (optional):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="adminRestartHotkeyLayout">
+          <item>
+           <widget class="QLineEdit" name="adminRestartHotkeyEdit">
+            <property name="placeholderText">
+             <string>e.g., Ctrl+Alt+F12, Win+F16</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
          <widget class="QCheckBox" name="volumeControlEnabledCheck">
           <property name="toolTip">
            <string>Enable per-app volume control feature for the active window application using hotkeys.</string>

@@ -14,6 +14,7 @@ KeyboardHook::KeyboardHook()
     hotkeyData_.isValid = false;
     volumeUpHotkeyData_.isValid = false;
     volumeDownHotkeyData_.isValid = false;
+    adminRestartHotkeyData_.isValid = false;
 }
 
 KeyboardHook::~KeyboardHook() {
@@ -112,6 +113,26 @@ void KeyboardHook::clearVolumeHotkeys() {
     Logger::log("Volume hotkeys cleared");
 }
 
+void KeyboardHook::setAdminRestartHotkey(const QKeySequence& sequence) {
+    adminRestartHotkey_ = sequence;
+    adminRestartHotkeyData_ = convertKeySequence(sequence);
+    
+    if (adminRestartHotkeyData_.isValid) {
+        Logger::log(QString("Admin restart hotkey set: %1 (VK: 0x%2, Modifiers: 0x%3)")
+                    .arg(sequence.toString())
+                    .arg(adminRestartHotkeyData_.virtualKey, 0, 16)
+                    .arg(adminRestartHotkeyData_.modifiers, 0, 16));
+    } else {
+        Logger::log(QString("Invalid admin restart hotkey: %1").arg(sequence.toString()));
+    }
+}
+
+void KeyboardHook::clearAdminRestartHotkey() {
+    adminRestartHotkey_ = QKeySequence();
+    adminRestartHotkeyData_.isValid = false;
+    Logger::log("Admin restart hotkey cleared");
+}
+
 LRESULT CALLBACK KeyboardHook::hookProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (instance_) {
         return instance_->processHook(nCode, wParam, lParam);
@@ -157,6 +178,12 @@ LRESULT KeyboardHook::processHook(int nCode, WPARAM wParam, LPARAM lParam) {
                 else if (volumeDownHotkeyData_.isValid && isHotkeyMatch(vk, true, volumeDownHotkeyData_)) {
                     Logger::log("Hook detected volume down hotkey match! Emitting signal");
                     emit volumeDownTriggered();
+                    // Don't suppress the key - let it pass through
+                }
+                // Check admin restart hotkey
+                else if (adminRestartHotkeyData_.isValid && isHotkeyMatch(vk, true, adminRestartHotkeyData_)) {
+                    Logger::log("Hook detected admin restart hotkey match! Emitting signal");
+                    emit adminRestartTriggered();
                     // Don't suppress the key - let it pass through
                 }
             }

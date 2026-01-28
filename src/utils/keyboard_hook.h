@@ -20,6 +20,10 @@ public:
     void setVolumeUpHotkey(const QKeySequence& sequence);
     void setVolumeDownHotkey(const QKeySequence& sequence);
     void clearVolumeHotkeys();
+
+    // Set admin restart hotkey
+    void setAdminRestartHotkey(const QKeySequence& sequence);
+    void clearAdminRestartHotkey();
     
     // Check if hook is installed
     bool isHookInstalled() const { return hookHandle_ != nullptr; }
@@ -28,6 +32,7 @@ signals:
     void hotkeyTriggered();
     void volumeUpTriggered();
     void volumeDownTriggered();
+    void adminRestartTriggered();
 
 private:
     KeyboardHook();
@@ -61,6 +66,10 @@ private:
     QKeySequence volumeDownHotkey_;
     HotkeyData volumeUpHotkeyData_;
     HotkeyData volumeDownHotkeyData_;
+
+    // Admin restart hotkey
+    QKeySequence adminRestartHotkey_;
+    HotkeyData adminRestartHotkeyData_;
     
     // Track modifier states
     bool ctrlPressed_;

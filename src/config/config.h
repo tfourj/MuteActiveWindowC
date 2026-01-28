@@ -52,6 +52,12 @@ public:
     // Hook-based hotkey settings
     bool getUseHook() const;
     void setUseHook(bool enabled);
+
+    // Admin restart hotkey settings
+    bool getAdminRestartHotkeyEnabled() const;
+    void setAdminRestartHotkeyEnabled(bool enabled);
+    QString getAdminRestartHotkey() const;
+    void setAdminRestartHotkey(const QString& hotkey);
     
     // Volume control settings
     bool getVolumeControlEnabled() const;

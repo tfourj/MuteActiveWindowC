@@ -94,6 +94,18 @@ void SettingsManager::migrateSettings() {
         needsSave = true;
         Logger::log("Added missing setting 'useHook' with default value: false");
     }
+
+    if (!config_.contains("adminRestartHotkeyEnabled")) {
+        config_.setAdminRestartHotkeyEnabled(false); // Default to disabled
+        needsSave = true;
+        Logger::log("Added missing setting 'adminRestartHotkeyEnabled' with default value: false");
+    }
+
+    if (!config_.contains("adminRestartHotkey")) {
+        config_.setAdminRestartHotkey(""); // Default to empty
+        needsSave = true;
+        Logger::log("Added missing setting 'adminRestartHotkey' with default value: empty");
+    }
     
     if (!config_.contains("volumeControlEnabled")) {
         config_.setVolumeControlEnabled(false); // Default to disabled
@@ -187,6 +199,14 @@ bool SettingsManager::getUseHook() const {
     return config_.getUseHook();
 }
 
+bool SettingsManager::getAdminRestartHotkeyEnabled() const {
+    return config_.getAdminRestartHotkeyEnabled();
+}
+
+QString SettingsManager::getAdminRestartHotkey() const {
+    return config_.getAdminRestartHotkey();
+}
+
 bool SettingsManager::getVolumeControlEnabled() const {
     return config_.getVolumeControlEnabled();
 }
@@ -270,6 +290,16 @@ void SettingsManager::setAutoUpdateCheck(bool enabled) {
 
 void SettingsManager::setUseHook(bool enabled) {
     config_.setUseHook(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setAdminRestartHotkeyEnabled(bool enabled) {
+    config_.setAdminRestartHotkeyEnabled(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setAdminRestartHotkey(const QString& hotkey) {
+    config_.setAdminRestartHotkey(hotkey);
     emit settingsChanged();
 }
 

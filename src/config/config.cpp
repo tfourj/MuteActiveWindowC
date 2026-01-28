@@ -158,6 +158,24 @@ void Config::setUseHook(bool enabled) {
     Logger::log(QString("Use hook setting saved: %1").arg(enabled ? "enabled" : "disabled"));
 }
 
+bool Config::getAdminRestartHotkeyEnabled() const {
+    return settings_.value("adminRestartHotkeyEnabled", false).toBool();
+}
+
+void Config::setAdminRestartHotkeyEnabled(bool enabled) {
+    settings_.setValue("adminRestartHotkeyEnabled", enabled);
+    Logger::log(QString("Admin restart hotkey enabled setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
+QString Config::getAdminRestartHotkey() const {
+    return settings_.value("adminRestartHotkey", "").toString();
+}
+
+void Config::setAdminRestartHotkey(const QString& hotkey) {
+    settings_.setValue("adminRestartHotkey", hotkey);
+    Logger::log(QString("Admin restart hotkey saved: %1").arg(hotkey));
+}
+
 bool Config::getVolumeControlEnabled() const {
     return settings_.value("volumeControlEnabled", false).toBool();
 }
@@ -245,6 +263,8 @@ void Config::save() {
     Logger::log(QString("  Show notifications: %1").arg(getShowNotifications() ? "enabled" : "disabled"));
     Logger::log(QString("  Auto-update check: %1").arg(getAutoUpdateCheck() ? "enabled" : "disabled"));
     Logger::log(QString("  Use hook: %1").arg(getUseHook() ? "enabled" : "disabled"));
+    Logger::log(QString("  Admin restart hotkey enabled: %1").arg(getAdminRestartHotkeyEnabled() ? "enabled" : "disabled"));
+    Logger::log(QString("  Admin restart hotkey: %1").arg(getAdminRestartHotkey()));
     Logger::log(QString("  Volume control enabled: %1").arg(getVolumeControlEnabled() ? "enabled" : "disabled"));
     Logger::log(QString("  Volume up hotkey: %1").arg(getVolumeUpHotkey()));
     Logger::log(QString("  Volume down hotkey: %1").arg(getVolumeDownHotkey()));
