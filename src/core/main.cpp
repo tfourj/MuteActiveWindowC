@@ -8,15 +8,32 @@
 #include <QStyleFactory>
 #include <QSharedMemory>
 #include <QMessageBox>
+#include <QThread>
 
 int main(int argc, char *argv[])
 {   
     QApplication a(argc, argv);
 
     QSharedMemory sharedMemory("MuteActiveWindowC_SingleInstanceGuard");
+    bool isAdminRestart = QCoreApplication::arguments().contains("--admin-restart");
     if (!sharedMemory.create(1)) {
+        if (isAdminRestart) {
+            bool created = false;
+            for (int attempt = 0; attempt < 30; ++attempt) {
+                QThread::msleep(100);
+                if (sharedMemory.create(1)) {
+                    created = true;
+                    break;
+                }
+            }
+            if (!created) {
+                QMessageBox::warning(nullptr, "MuteActiveWindowC", "Another instance of MuteActiveWindowC is already running.\n\nPlease close the other instance and try again.");
+                return 0;
+            }
+        } else {
         QMessageBox::warning(nullptr, "MuteActiveWindowC", "Another instance of MuteActiveWindowC is already running.\n\nPlease close the other instance and try again.");
         return 0;
+        }
     }
     
     // Set application icon

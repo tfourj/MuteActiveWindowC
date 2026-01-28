@@ -1825,6 +1825,9 @@ void MainWindow::onAdminRestartTriggered() {
     if (!args.isEmpty()) {
         args.removeFirst();
     }
+    if (!args.contains("--admin-restart")) {
+        args.append("--admin-restart");
+    }
     
     QString params = joinWindowsArguments(args);
     std::wstring wAppPath = appPath.toStdWString();
