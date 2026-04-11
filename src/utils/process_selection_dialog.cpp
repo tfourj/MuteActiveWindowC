@@ -95,25 +95,6 @@ void ProcessSelectionDialog::refreshProcesses() {
             
             // Only add if we haven't seen this process name before, or if this PID has visible windows
             if (!uniqueProcesses.contains(processName)) {
-                // Check if this process has visible windows
-                bool hasVisibleWindows = false;
-                EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
-                    DWORD* data = reinterpret_cast<DWORD*>(lParam);
-                    DWORD targetPID = data[0];
-                    DWORD windowPID = 0;
-                    
-                    GetWindowThreadProcessId(hwnd, &windowPID);
-                    
-                    if (windowPID == targetPID && IsWindowVisible(hwnd) && GetWindow(hwnd, GW_OWNER) == nullptr) {
-                        char title[256];
-                        if (GetWindowTextA(hwnd, title, sizeof(title)) > 0) {
-                            data[1] = 1; // Mark as having visible windows
-                            return FALSE;
-                        }
-                    }
-                    return TRUE;
-                }, reinterpret_cast<LPARAM>(&pe32.th32ProcessID));
-                
                 DWORD checkData[2] = {pe32.th32ProcessID, 0};
                 EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
                     DWORD* data = reinterpret_cast<DWORD*>(lParam);
@@ -155,4 +136,4 @@ void ProcessSelectionDialog::refreshProcesses() {
     
     // Sort the list alphabetically
     processList->sortItems();
-} 
+}

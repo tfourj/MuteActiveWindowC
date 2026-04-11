@@ -14,7 +14,7 @@ void Logger::init(const QString &logFilePath) {
         delete g_logFile;
     }
     g_logFile = new QFile(logFilePath);
-    g_logFile->open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate);
+    static_cast<void>(g_logFile->open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate));
 }
 
 void Logger::log(const QString &msg) {

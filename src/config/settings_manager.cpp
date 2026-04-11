@@ -370,7 +370,7 @@ void SettingsManager::setupStartupRegistry() {
         std::wstring wAppPath = appPath.toStdWString();
         result = RegSetValueExW(hKey, L"MuteActiveWindow", 0, REG_SZ, 
             (const BYTE*)wAppPath.c_str(), 
-            (wAppPath.length() + 1) * sizeof(wchar_t));
+            static_cast<DWORD>((wAppPath.length() + 1) * sizeof(wchar_t)));
         
         if (result == ERROR_SUCCESS) {
             Logger::log("Successfully added to Windows startup");

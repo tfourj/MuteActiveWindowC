@@ -670,13 +670,19 @@ void MainWindow::simulateHotkeyInSelectedApp() {
     Logger::log(QString("User selected process: %1 (PID: %2)").arg(selectedProcess).arg(selectedPID));
     
     // Find the main window of the selected process (more flexible approach)
+    struct WindowCandidateData {
+        DWORD pid;
+        quintptr bestWindow;
+        int bestScore;
+    };
+
     HWND targetWindow = nullptr;
-    DWORD data[3] = {selectedPID, 0, 0}; // PID, HWND, best score
+    WindowCandidateData data = {selectedPID, 0, 0};
     
     // First pass: look for the best window
     EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
-        DWORD* dataArray = reinterpret_cast<DWORD*>(lParam);
-        DWORD targetPID = dataArray[0];
+        WindowCandidateData* dataArray = reinterpret_cast<WindowCandidateData*>(lParam);
+        DWORD targetPID = dataArray->pid;
         DWORD windowPID = 0;
         
         GetWindowThreadProcessId(hwnd, &windowPID);
@@ -719,16 +725,16 @@ void MainWindow::simulateHotkeyInSelectedApp() {
                 }
                 
                 // Update if this is the best window so far
-                if (score > static_cast<int>(dataArray[2])) {
-                    dataArray[1] = reinterpret_cast<DWORD>(hwnd);
-                    dataArray[2] = score;
+                if (score > dataArray->bestScore) {
+                    dataArray->bestWindow = reinterpret_cast<quintptr>(hwnd);
+                    dataArray->bestScore = score;
                 }
             }
         }
         return TRUE; // Continue enumeration to find the best window
-    }, reinterpret_cast<LPARAM>(data));
+    }, reinterpret_cast<LPARAM>(&data));
     
-    targetWindow = reinterpret_cast<HWND>(data[1]);
+    targetWindow = reinterpret_cast<HWND>(data.bestWindow);
     
     if (!targetWindow) {
         Logger::log(QString("Could not find main window for process %1 (PID: %2)").arg(selectedProcess).arg(selectedPID));
@@ -743,7 +749,7 @@ void MainWindow::simulateHotkeyInSelectedApp() {
     Logger::log(QString("Selected window: '%1' (Class: %2, Score: %3)")
                .arg(QString::fromLatin1(windowTitle))
                .arg(QString::fromLatin1(className))
-               .arg(data[2]));
+               .arg(data.bestScore));
     
     // Focus the target application
     Logger::log(QString("Focusing window: 0x%1").arg(reinterpret_cast<quintptr>(targetWindow), 0, 16));
