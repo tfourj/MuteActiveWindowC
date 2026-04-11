@@ -18,6 +18,7 @@ public:
         int virtualKey = 0;
         int modifiers = 0;  // Combination of MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN
         AltRequirement altRequirement = AltRequirement::None;
+        bool modifierOnly = false;
         bool isValid = false;
         QString normalizedText;
     };

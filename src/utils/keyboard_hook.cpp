@@ -84,6 +84,7 @@ KeyboardHook::HotkeyData KeyboardHook::parseHotkey(const QString& hotkey, QStrin
 
     QString normalizedPrimaryKey;
     bool hasPrimaryKey = false;
+    int modifierCount = 0;
     bool hasAltModifier = false;
     for (const QString& rawToken : tokens) {
         const QString token = rawToken.trimmed();
@@ -103,6 +104,7 @@ KeyboardHook::HotkeyData KeyboardHook::parseHotkey(const QString& hotkey, QStrin
                 return HotkeyData();
             }
             data.modifiers |= MOD_CONTROL;
+            ++modifierCount;
             continue;
         }
 
@@ -114,6 +116,7 @@ KeyboardHook::HotkeyData KeyboardHook::parseHotkey(const QString& hotkey, QStrin
                 return HotkeyData();
             }
             data.modifiers |= MOD_SHIFT;
+            ++modifierCount;
             continue;
         }
 
@@ -125,6 +128,7 @@ KeyboardHook::HotkeyData KeyboardHook::parseHotkey(const QString& hotkey, QStrin
                 return HotkeyData();
             }
             data.modifiers |= MOD_WIN;
+            ++modifierCount;
             continue;
         }
 
@@ -138,6 +142,7 @@ KeyboardHook::HotkeyData KeyboardHook::parseHotkey(const QString& hotkey, QStrin
             }
 
             data.modifiers |= MOD_ALT;
+            ++modifierCount;
             hasAltModifier = true;
             if (lowerToken == "alt") {
                 data.altRequirement = AltRequirement::Any;
@@ -179,8 +184,49 @@ KeyboardHook::HotkeyData KeyboardHook::parseHotkey(const QString& hotkey, QStrin
     }
 
     if (!hasPrimaryKey) {
+        if (modifierCount == 1) {
+            data.modifierOnly = true;
+            if (data.modifiers & MOD_CONTROL) {
+                data.virtualKey = VK_CONTROL;
+                data.normalizedText = "Ctrl";
+            } else if (data.modifiers & MOD_ALT) {
+                switch (data.altRequirement) {
+                    case AltRequirement::Any:
+                        data.virtualKey = VK_MENU;
+                        data.normalizedText = "Alt";
+                        break;
+                    case AltRequirement::Left:
+                        data.virtualKey = VK_LMENU;
+                        data.normalizedText = "LAlt";
+                        break;
+                    case AltRequirement::Right:
+                        data.virtualKey = VK_RMENU;
+                        data.normalizedText = "RAlt";
+                        break;
+                    case AltRequirement::None:
+                        break;
+                }
+            } else if (data.modifiers & MOD_SHIFT) {
+                data.virtualKey = VK_SHIFT;
+                data.normalizedText = "Shift";
+            } else if (data.modifiers & MOD_WIN) {
+                data.virtualKey = VK_LWIN;
+                data.normalizedText = "Win";
+            }
+
+            if (data.virtualKey != 0) {
+                data.isValid = true;
+                if (errorMessage) {
+                    errorMessage->clear();
+                }
+                return data;
+            }
+        }
+
         if (errorMessage) {
-            *errorMessage = "Hotkey must include a non-modifier key.";
+            *errorMessage = modifierCount > 1
+                ? "Modifier-only hotkeys can only use a single modifier key."
+                : "Hotkey must include a non-modifier key.";
         }
         return HotkeyData();
     }
@@ -459,7 +505,34 @@ void KeyboardHook::updateModifierState(DWORD vkCode, DWORD scanCode, DWORD flags
 }
 
 bool KeyboardHook::isHotkeyMatch(DWORD vkCode, const HotkeyData& data) const {
-    if (!data.isValid || vkCode != static_cast<DWORD>(data.virtualKey)) {
+    if (!data.isValid) {
+        return false;
+    }
+
+    bool keyMatches = false;
+    if (data.modifierOnly) {
+        switch (data.virtualKey) {
+            case VK_CONTROL:
+                keyMatches = (vkCode == VK_CONTROL || vkCode == VK_LCONTROL || vkCode == VK_RCONTROL);
+                break;
+            case VK_MENU:
+                keyMatches = (vkCode == VK_MENU || vkCode == VK_LMENU || vkCode == VK_RMENU);
+                break;
+            case VK_SHIFT:
+                keyMatches = (vkCode == VK_SHIFT || vkCode == VK_LSHIFT || vkCode == VK_RSHIFT);
+                break;
+            case VK_LWIN:
+                keyMatches = (vkCode == VK_LWIN || vkCode == VK_RWIN);
+                break;
+            default:
+                keyMatches = (vkCode == static_cast<DWORD>(data.virtualKey));
+                break;
+        }
+    } else {
+        keyMatches = (vkCode == static_cast<DWORD>(data.virtualKey));
+    }
+
+    if (!keyMatches) {
         return false;
     }
 
