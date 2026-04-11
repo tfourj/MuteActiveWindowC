@@ -149,15 +149,6 @@ void Config::setAutoUpdateCheck(bool enabled) {
     Logger::log(QString("Auto-update check setting saved: %1").arg(enabled ? "enabled" : "disabled"));
 }
 
-bool Config::getUseHook() const {
-    return settings_.value("useHook", false).toBool(); // Default to false (normal hotkey registration)
-}
-
-void Config::setUseHook(bool enabled) {
-    settings_.setValue("useHook", enabled);
-    Logger::log(QString("Use hook setting saved: %1").arg(enabled ? "enabled" : "disabled"));
-}
-
 bool Config::getAdminRestartHotkeyEnabled() const {
     return settings_.value("adminRestartHotkeyEnabled", false).toBool();
 }
@@ -262,7 +253,6 @@ void Config::save() {
     Logger::log(QString("  Dark mode: %1").arg(getDarkMode() ? "enabled" : "disabled"));
     Logger::log(QString("  Show notifications: %1").arg(getShowNotifications() ? "enabled" : "disabled"));
     Logger::log(QString("  Auto-update check: %1").arg(getAutoUpdateCheck() ? "enabled" : "disabled"));
-    Logger::log(QString("  Use hook: %1").arg(getUseHook() ? "enabled" : "disabled"));
     Logger::log(QString("  Admin restart hotkey enabled: %1").arg(getAdminRestartHotkeyEnabled() ? "enabled" : "disabled"));
     Logger::log(QString("  Admin restart hotkey: %1").arg(getAdminRestartHotkey()));
     Logger::log(QString("  Volume control enabled: %1").arg(getVolumeControlEnabled() ? "enabled" : "disabled"));

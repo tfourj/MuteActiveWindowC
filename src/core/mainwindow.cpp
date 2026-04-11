@@ -47,10 +47,6 @@
 #include "volume_osd.h"
 
 static const QString VERSION = QString(APP_VERSION);
-static constexpr int HOTKEY_ID = 0xBEEF;
-static constexpr int VOLUME_UP_HOTKEY_ID = 0xBEE1;
-static constexpr int VOLUME_DOWN_HOTKEY_ID = 0xBEE2;
-static constexpr int ADMIN_RESTART_HOTKEY_ID = 0xBEE3;
 
 MainWindow* MainWindow::clickDetectionInstance_ = nullptr;
 
@@ -99,7 +95,7 @@ static QString joinWindowsArguments(const QStringList& args) {
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), hotkeyId_(HOTKEY_ID), volumeUpHotkeyId_(VOLUME_UP_HOTKEY_ID), volumeDownHotkeyId_(VOLUME_DOWN_HOTKEY_ID), adminRestartHotkeyId_(ADMIN_RESTART_HOTKEY_ID), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr), mouseHookHandle_(nullptr), clickDetectionTimer_(nullptr), waitingForClick_(false), clickDetectionMessageBox_(nullptr), clickDetectionMessageBoxHandle_(nullptr) {
+    : QMainWindow(parent), ui(new Ui::MainWindow), settingsManager_(SettingsManager::instance()), trayIcon_(nullptr), trayMenu_(nullptr), mouseHookHandle_(nullptr), clickDetectionTimer_(nullptr), waitingForClick_(false), clickDetectionMessageBox_(nullptr), clickDetectionMessageBoxHandle_(nullptr) {
     Logger::log("=== MainWindow Constructor ===");
     ui->setupUi(this);
     if (isRunningAsAdmin()) {
@@ -143,7 +139,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->showNotificationsCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->autoUpdateCheckBox, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->darkModeCheck, &QCheckBox::toggled, this, &MainWindow::onDarkModeChanged);
-    connect(ui->useHookCheck, &QCheckBox::toggled, this, &MainWindow::onUseHookChanged);
     connect(ui->adminRestartHotkeyEnabledCheck, &QCheckBox::toggled, this, [this](bool enabled) {
         ui->adminRestartHotkeyEdit->setEnabled(enabled);
     });
@@ -198,12 +193,6 @@ MainWindow::MainWindow(QWidget *parent)
     Logger::log("Registering initial hotkey...");
     registerHotkey();
     
-    // Register volume hotkeys if enabled
-    if (settingsManager_.getVolumeControlEnabled()) {
-        Logger::log("Volume control enabled, registering volume hotkeys...");
-        registerVolumeHotkeys();
-    }
-    
     // Check if we should start minimized
     if (ui->startupMinimizedCheck->isChecked()) {
         // Don't show the window at all if startup minimized is enabled
@@ -248,19 +237,13 @@ void MainWindow::loadSettings() {
     Logger::log("=== Loading Settings ===");
     
     // Load hotkey
-    QString hotkey = settingsManager_.getHotkey();
-    currentSeq_ = QKeySequence::fromString(hotkey);
-    
-    // Convert "Meta" back to "Win" for user-friendly display
-    QString displayText = currentSeq_.toString();
-    displayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
-    displayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
-    if (displayText == "Meta") {
-        displayText = "Win";
+    currentHotkey_ = settingsManager_.getHotkey();
+    const KeyboardHook::HotkeyData mainHotkeyData = KeyboardHook::parseHotkey(currentHotkey_);
+    if (mainHotkeyData.isValid) {
+        currentHotkey_ = mainHotkeyData.normalizedText;
     }
-    
-    ui->hotkeyEdit->setText(displayText);
-    Logger::log(QString("Loaded hotkey from settings: '%1' (displayed as: '%2')").arg(currentSeq_.toString()).arg(displayText));
+    ui->hotkeyEdit->setText(currentHotkey_);
+    Logger::log(QString("Loaded hotkey from settings: '%1'").arg(currentHotkey_));
     
     // Load main process only setting
     bool mainProcessOnly = settingsManager_.getMainProcessOnly();
@@ -291,11 +274,6 @@ void MainWindow::loadSettings() {
     ui->autoUpdateCheckBox->setChecked(autoUpdateCheck);
     Logger::log(QString("Loaded auto-update check setting: %1").arg(autoUpdateCheck ? "enabled" : "disabled"));
     
-    // Load use hook setting
-    bool useHook = settingsManager_.getUseHook();
-    ui->useHookCheck->setChecked(useHook);
-    Logger::log(QString("Loaded use hook setting: %1").arg(useHook ? "enabled" : "disabled"));
-
     bool adminRestartEnabled = settingsManager_.getAdminRestartHotkeyEnabled();
     ui->adminRestartHotkeyEnabledCheck->setChecked(adminRestartEnabled);
     ui->adminRestartHotkeyEdit->setEnabled(adminRestartEnabled);
@@ -325,38 +303,29 @@ void MainWindow::loadSettings() {
         ui->tabWidget->setTabVisible(tabIndex, volumeControlEnabled);
     }
     
-    QString volumeUpHotkey = settingsManager_.getVolumeUpHotkey();
-    volumeUpSeq_ = QKeySequence::fromString(volumeUpHotkey);
-    QString volumeUpDisplayText = volumeUpSeq_.toString();
-    volumeUpDisplayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
-    volumeUpDisplayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
-    if (volumeUpDisplayText == "Meta") {
-        volumeUpDisplayText = "Win";
+    volumeUpHotkey_ = settingsManager_.getVolumeUpHotkey();
+    const KeyboardHook::HotkeyData volumeUpData = KeyboardHook::parseHotkey(volumeUpHotkey_);
+    if (volumeUpData.isValid) {
+        volumeUpHotkey_ = volumeUpData.normalizedText;
     }
-    ui->volumeUpHotkeyEdit->setText(volumeUpDisplayText);
-    Logger::log(QString("Loaded volume up hotkey: '%1'").arg(volumeUpHotkey));
-    
-    QString volumeDownHotkey = settingsManager_.getVolumeDownHotkey();
-    volumeDownSeq_ = QKeySequence::fromString(volumeDownHotkey);
-    QString volumeDownDisplayText = volumeDownSeq_.toString();
-    volumeDownDisplayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
-    volumeDownDisplayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
-    if (volumeDownDisplayText == "Meta") {
-        volumeDownDisplayText = "Win";
-    }
-    ui->volumeDownHotkeyEdit->setText(volumeDownDisplayText);
-    Logger::log(QString("Loaded volume down hotkey: '%1'").arg(volumeDownHotkey));
+    ui->volumeUpHotkeyEdit->setText(volumeUpHotkey_);
+    Logger::log(QString("Loaded volume up hotkey: '%1'").arg(volumeUpHotkey_));
 
-    QString adminRestartHotkey = settingsManager_.getAdminRestartHotkey();
-    adminRestartSeq_ = QKeySequence::fromString(adminRestartHotkey);
-    QString adminRestartDisplayText = adminRestartSeq_.toString();
-    adminRestartDisplayText.replace("Meta+", "Win+", Qt::CaseInsensitive);
-    adminRestartDisplayText.replace("+Meta", "+Win", Qt::CaseInsensitive);
-    if (adminRestartDisplayText == "Meta") {
-        adminRestartDisplayText = "Win";
+    volumeDownHotkey_ = settingsManager_.getVolumeDownHotkey();
+    const KeyboardHook::HotkeyData volumeDownData = KeyboardHook::parseHotkey(volumeDownHotkey_);
+    if (volumeDownData.isValid) {
+        volumeDownHotkey_ = volumeDownData.normalizedText;
     }
-    ui->adminRestartHotkeyEdit->setText(adminRestartDisplayText);
-    Logger::log(QString("Loaded admin restart hotkey: '%1'").arg(adminRestartHotkey));
+    ui->volumeDownHotkeyEdit->setText(volumeDownHotkey_);
+    Logger::log(QString("Loaded volume down hotkey: '%1'").arg(volumeDownHotkey_));
+
+    adminRestartHotkey_ = settingsManager_.getAdminRestartHotkey();
+    const KeyboardHook::HotkeyData adminRestartData = KeyboardHook::parseHotkey(adminRestartHotkey_);
+    if (adminRestartData.isValid) {
+        adminRestartHotkey_ = adminRestartData.normalizedText;
+    }
+    ui->adminRestartHotkeyEdit->setText(adminRestartHotkey_);
+    Logger::log(QString("Loaded admin restart hotkey: '%1'").arg(adminRestartHotkey_));
     
     float volumeStepPercent = settingsManager_.getVolumeStepPercent();
     ui->volumeStepSpinBox->setValue(volumeStepPercent);
@@ -403,9 +372,6 @@ void MainWindow::saveSettings() {
     // Save auto-update check setting
     settingsManager_.setAutoUpdateCheck(ui->autoUpdateCheckBox->isChecked());
     
-    // Save use hook setting
-    settingsManager_.setUseHook(ui->useHookCheck->isChecked());
-
     // Save admin restart hotkey enabled setting
     settingsManager_.setAdminRestartHotkeyEnabled(ui->adminRestartHotkeyEnabledCheck->isChecked());
     
@@ -430,330 +396,124 @@ void MainWindow::applySettings() {
     Logger::log("=== Applying Settings ===");
     unregisterHotkey();
     
-    QString keyText = ui->hotkeyEdit->text().trimmed();
+    const QString keyText = ui->hotkeyEdit->text().trimmed();
     Logger::log(QString("Raw key text: '%1'").arg(keyText));
-    
+
     if (keyText.isEmpty()) {
         Logger::log("No hotkey specified");
         QMessageBox::warning(this, "Invalid Hotkey", "Please enter a valid hotkey.");
         return;
     }
-    
-    // Preprocess the key text to convert "Win" to "Meta" for Qt compatibility
-    QString processedKeyText = keyText;
-    processedKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
-    processedKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
-    if (processedKeyText == "Win") {
-        processedKeyText = "Meta";
-    }
-    
-    currentSeq_ = QKeySequence::fromString(processedKeyText);
-    Logger::log(QString("Original key text: '%1'").arg(keyText));
-    if (processedKeyText != keyText) {
-        Logger::log(QString("Processed key text: '%1'").arg(processedKeyText));
-    }
-    Logger::log(QString("Parsed key sequence: '%1' (count: %2)").arg(currentSeq_.toString()).arg(currentSeq_.count()));
-    
-    if (currentSeq_.isEmpty()) {
-        Logger::log(QString("Invalid key sequence: %1").arg(keyText));
-        QMessageBox::warning(this, "Invalid Hotkey", QString("Invalid hotkey format: %1\n\nPlease use format like: Ctrl+F1, Alt+M, Shift+F2").arg(keyText));
+
+    if (!parseAndNormalizeHotkey(keyText, "hotkey", false, &currentHotkey_)) {
         return;
     }
-    
-    // Log the individual keys in the sequence
-    for (int i = 0; i < currentSeq_.count(); ++i) {
-        QKeyCombination key = currentSeq_[i];
-        int keyValue = key.toCombined();
-        Logger::log(QString("Key %1: 0x%2").arg(i).arg(keyValue, 0, 16));
-        
-        // Debug modifier detection
-        QString modifiers;
-        if (keyValue & Qt::ControlModifier) modifiers += "Ctrl ";
-        if (keyValue & Qt::AltModifier) modifiers += "Alt ";
-        if (keyValue & Qt::ShiftModifier) modifiers += "Shift ";
-        if (keyValue & Qt::MetaModifier) modifiers += "Meta(Win) ";
-        Logger::log(QString("Key %1 modifiers: %2").arg(i).arg(modifiers.trimmed()));
-        
-        int baseKey = keyValue & ~Qt::KeyboardModifierMask;
-        Logger::log(QString("Key %1 base key: 0x%2").arg(i).arg(baseKey, 0, 16));
-    }
-    
-    // Save the processed hotkey to settings
-    QString validHotkeyString = currentSeq_.toString();
-    settingsManager_.setHotkey(validHotkeyString);
-    Logger::log(QString("Saving processed hotkey to settings: '%1'").arg(validHotkeyString));
+    settingsManager_.setHotkey(currentHotkey_);
+    ui->hotkeyEdit->setText(currentHotkey_);
+    Logger::log(QString("Saving normalized hotkey to settings: '%1'").arg(currentHotkey_));
 
-    bool adminRestartEnabled = ui->adminRestartHotkeyEnabledCheck->isChecked();
-    QString adminRestartKeyText = ui->adminRestartHotkeyEdit->text().trimmed();
-    QString processedAdminRestartKeyText = adminRestartKeyText;
-    processedAdminRestartKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
-    processedAdminRestartKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
-    if (processedAdminRestartKeyText == "Win") {
-        processedAdminRestartKeyText = "Meta";
-    }
-    
+    const bool adminRestartEnabled = ui->adminRestartHotkeyEnabledCheck->isChecked();
+    const QString adminRestartKeyText = ui->adminRestartHotkeyEdit->text().trimmed();
     if (adminRestartEnabled && adminRestartKeyText.isEmpty()) {
         Logger::log("Admin restart hotkey enabled but no hotkey specified");
         QMessageBox::warning(this, "Invalid Hotkey", "Please enter a valid admin restart hotkey or disable the setting.");
         return;
     }
-    
-    QKeySequence adminRestartSeq = QKeySequence::fromString(processedAdminRestartKeyText);
-    if (!adminRestartKeyText.isEmpty() && adminRestartSeq.isEmpty()) {
-        QMessageBox::warning(this, "Invalid Hotkey", QString("Invalid admin restart hotkey format: %1\n\nPlease use format like: Ctrl+Alt+F12, Win+F16").arg(adminRestartKeyText));
+
+    if (!parseAndNormalizeHotkey(adminRestartKeyText, "admin restart hotkey", true, &adminRestartHotkey_)) {
         return;
     }
-    adminRestartSeq_ = adminRestartSeq;
     settingsManager_.setAdminRestartHotkeyEnabled(adminRestartEnabled);
-    settingsManager_.setAdminRestartHotkey(adminRestartSeq.toString());
-    
+    settingsManager_.setAdminRestartHotkey(adminRestartEnabled ? adminRestartHotkey_ : QString());
+    ui->adminRestartHotkeyEdit->setText(adminRestartHotkey_);
+
     // Save other settings
     saveSettings();
-    
+
     registerHotkey();
-    
+
     // Show success message
     QMessageBox::information(this, "Settings Saved", 
         QString("Hotkey '%1' has been saved successfully!\n\n"
                 "PID-based muting: %2\n"
                 "Excluded devices: %3")
-        .arg(currentSeq_.toString())
+        .arg(currentHotkey_)
         .arg(ui->mainProcessOnlyCheck->isChecked() ? "Enabled" : "Disabled")
         .arg(settingsManager_.getExcludedDevices().join(", ")));
-    
-    Logger::log(QString("Hotkey set to %1").arg(currentSeq_.toString()));
+
+    Logger::log(QString("Hotkey set to %1").arg(currentHotkey_));
 }
 
 void MainWindow::registerHotkey() {
-    if (currentSeq_.isEmpty()) {
+    if (currentHotkey_.isEmpty()) {
         Logger::log("Cannot register hotkey: sequence is empty");
         return;
     }
-    
-    // Check if we should use hook-based detection
-    bool useHook = settingsManager_.getUseHook();
-    bool adminRestartEnabled = settingsManager_.getAdminRestartHotkeyEnabled();
-    
-    if (useHook) {
-        Logger::log("Using hook-based hotkey detection");
-        KeyboardHook::instance().setHotkey(currentSeq_);
-        
-        // Also set volume hotkeys if enabled
-        if (settingsManager_.getVolumeControlEnabled()) {
-            if (!volumeUpSeq_.isEmpty()) {
-                KeyboardHook::instance().setVolumeUpHotkey(volumeUpSeq_);
-            }
-            if (!volumeDownSeq_.isEmpty()) {
-                KeyboardHook::instance().setVolumeDownHotkey(volumeDownSeq_);
-            }
-        }
-        
-        if (adminRestartEnabled && !adminRestartSeq_.isEmpty()) {
-            KeyboardHook::instance().setAdminRestartHotkey(adminRestartSeq_);
-        } else {
-            KeyboardHook::instance().clearAdminRestartHotkey();
-        }
-        
-        if (KeyboardHook::instance().installHook()) {
-            Logger::log(QString("Hotkey hook registered successfully: %1").arg(currentSeq_.toString()));
-        } else {
-            Logger::log("Failed to install keyboard hook, falling back to RegisterHotKey");
-            registerHotkeyNormal();
-            if (settingsManager_.getVolumeControlEnabled()) {
-                registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
-                registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
-            }
-            if (adminRestartEnabled) {
-                registerAdminRestartHotkeyNormal(adminRestartSeq_, adminRestartHotkeyId_);
-            }
-        }
-    } else {
-        Logger::log("Using normal RegisterHotKey hotkey detection");
-        registerHotkeyNormal();
-        if (settingsManager_.getVolumeControlEnabled()) {
-            registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
-            registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
-        }
-        if (adminRestartEnabled) {
-            registerAdminRestartHotkeyNormal(adminRestartSeq_, adminRestartHotkeyId_);
-        }
-    }
-}
 
-void MainWindow::registerHotkeyNormal() {
-    // Check if window handle is valid
-    HWND hwnd = (HWND)winId();
-    if (!hwnd) {
-        Logger::log("Cannot register hotkey: invalid window handle");
-        return;
+    Logger::log("Registering hook-based hotkeys");
+    KeyboardHook::instance().setHotkey(currentHotkey_);
+    KeyboardHook::instance().clearVolumeHotkeys();
+
+    if (settingsManager_.getVolumeControlEnabled()) {
+        if (!volumeUpHotkey_.isEmpty()) {
+            KeyboardHook::instance().setVolumeUpHotkey(volumeUpHotkey_);
+        }
+        if (!volumeDownHotkey_.isEmpty()) {
+            KeyboardHook::instance().setVolumeDownHotkey(volumeDownHotkey_);
+        }
     }
-    
-    Logger::log(QString("Window handle: 0x%1").arg((quintptr)hwnd, 0, 16));
-    
-    // Get the first key from the sequence
-    QKeyCombination key = currentSeq_[0];
-    if (key.toCombined() == 0) {
-        Logger::log("Cannot register hotkey: invalid key code");
-        return;
-    }
-    
-    Logger::log(QString("Registering hotkey. Raw key: 0x%1").arg(key.toCombined(), 0, 16));
-    
-    // Extract modifiers manually
-    int mods = 0;
-    int keyValue = key.toCombined();
-    if (keyValue & Qt::ShiftModifier) {
-        mods |= MOD_SHIFT;
-        Logger::log("Shift modifier detected");
-    }
-    if (keyValue & Qt::ControlModifier) {
-        mods |= MOD_CONTROL;
-        Logger::log("Control modifier detected");
-    }
-    if (keyValue & Qt::AltModifier) {
-        mods |= MOD_ALT;
-        Logger::log("Alt modifier detected");
-    }
-    if (keyValue & Qt::MetaModifier) {
-        mods |= MOD_WIN;
-        Logger::log("Win modifier detected");
-    }
-    
-    // Get the actual key code without modifiers
-    int vk = keyValue & ~Qt::KeyboardModifierMask;
-    Logger::log(QString("Key code without modifiers: 0x%1").arg(vk, 0, 16));
-    
-    // Map Qt key to Windows virtual key code
-    int winVk = 0;
-    if (vk >= Qt::Key_A && vk <= Qt::Key_Z) {
-        winVk = 'A' + (vk - Qt::Key_A);
-        Logger::log(QString("Mapped letter key: %1 -> 0x%2").arg(QChar(vk)).arg(winVk, 0, 16));
-    } else if (vk >= Qt::Key_0 && vk <= Qt::Key_9) {
-        winVk = '0' + (vk - Qt::Key_0);
-        Logger::log(QString("Mapped number key: %1 -> 0x%2").arg(vk - Qt::Key_0).arg(winVk, 0, 16));
-    } else if (vk >= Qt::Key_F1 && vk <= Qt::Key_F24) {
-        winVk = VK_F1 + (vk - Qt::Key_F1);
-        Logger::log(QString("Mapped function key: F%1 -> 0x%2").arg(vk - Qt::Key_F1 + 1).arg(winVk, 0, 16));
+
+    if (settingsManager_.getAdminRestartHotkeyEnabled() && !adminRestartHotkey_.isEmpty()) {
+        KeyboardHook::instance().setAdminRestartHotkey(adminRestartHotkey_);
     } else {
-        // For other keys, try to map them
-        switch (vk) {
-            case Qt::Key_Space: winVk = VK_SPACE; break;
-            case Qt::Key_Tab: winVk = VK_TAB; break;
-            case Qt::Key_Return: winVk = VK_RETURN; break;
-            case Qt::Key_Escape: winVk = VK_ESCAPE; break;
-            case Qt::Key_Backspace: winVk = VK_BACK; break;
-            case Qt::Key_Delete: winVk = VK_DELETE; break;
-            case Qt::Key_Insert: winVk = VK_INSERT; break;
-            case Qt::Key_Home: winVk = VK_HOME; break;
-            case Qt::Key_End: winVk = VK_END; break;
-            case Qt::Key_PageUp: winVk = VK_PRIOR; break;
-            case Qt::Key_PageDown: winVk = VK_NEXT; break;
-            default: 
-                winVk = vk; 
-                Logger::log(QString("Using raw key code: 0x%1").arg(winVk, 0, 16));
-                break;
-        }
-        if (winVk != vk) {
-            Logger::log(QString("Mapped special key: 0x%1 -> 0x%2").arg(vk, 0, 16).arg(winVk, 0, 16));
-        }
+        KeyboardHook::instance().clearAdminRestartHotkey();
     }
-    
-    if (winVk == 0) {
-        Logger::log(QString("Failed to map key: 0x%1").arg(vk, 0, 16));
-        return;
-    }
-    
-    Logger::log(QString("Final registration: mods=0x%1, vk=0x%2, hotkeyId=%3").arg(mods, 0, 16).arg(winVk, 0, 16).arg(hotkeyId_));
-    
-    if (!RegisterHotKey(hwnd, hotkeyId_, mods, winVk)) {
-        DWORD error = GetLastError();
-        Logger::log(QString("Failed to register hotkey. Error: %1 (0x%2)").arg(error).arg(error, 0, 16));
-        
-        // Try alternative approach - use scan code
-        int scanCode = MapVirtualKeyW(winVk, MAPVK_VK_TO_VSC);
-        Logger::log(QString("Trying with scan code: 0x%1").arg(scanCode, 0, 16));
-        
-        if (!RegisterHotKey(hwnd, hotkeyId_, mods, scanCode)) {
-            error = GetLastError();
-            Logger::log(QString("Failed to register hotkey with scan code. Error: %1 (0x%2)").arg(error).arg(error, 0, 16));
-        } else {
-            Logger::log(QString("Hotkey registered successfully with scan code: %1").arg(currentSeq_.toString()));
-        }
-    } else {
-        Logger::log(QString("Hotkey registered successfully: %1").arg(currentSeq_.toString()));
+
+    if (ensureKeyboardHookInstalled()) {
+        Logger::log(QString("Hook hotkeys registered successfully: %1").arg(currentHotkey_));
     }
 }
 
 void MainWindow::unregisterHotkey() {
-    // Uninstall keyboard hook if it was installed
     if (KeyboardHook::instance().isHookInstalled()) {
         Logger::log("Uninstalling keyboard hook");
         KeyboardHook::instance().uninstallHook();
     }
-    
-    // Also try to unregister normal hotkey in case it was registered
-    if (!UnregisterHotKey((HWND)winId(), hotkeyId_)) {
-        DWORD error = GetLastError();
-        if (error != ERROR_FILE_NOT_FOUND) { // This error is expected if hotkey wasn't registered
-            Logger::log(QString("Failed to unregister hotkey: %1").arg(error));
-        }
-    }
-    
-    if (!UnregisterHotKey((HWND)winId(), adminRestartHotkeyId_)) {
-        DWORD error = GetLastError();
-        if (error != ERROR_FILE_NOT_FOUND) {
-            Logger::log(QString("Failed to unregister admin restart hotkey: %1").arg(error));
-        }
-    }
-    
-    // Also unregister volume hotkeys
     unregisterVolumeHotkeys();
+    KeyboardHook::instance().clearAdminRestartHotkey();
 }
 
-bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result) {
-    if (eventType == "windows_generic_MSG") {
-        MSG* msg = static_cast<MSG*>(message);
-        
-        // Log all Windows messages for debugging
-        if (msg->message == WM_HOTKEY) {
-            Logger::log(QString("WM_HOTKEY received: wParam=0x%1, lParam=0x%2").arg(msg->wParam, 0, 16).arg(msg->lParam, 0, 16));
-            
-            if (msg->wParam == hotkeyId_) {
-                Logger::log("Hotkey ID matches! Triggering onHotkeyTriggered()");
-                onHotkeyTriggered();
-                *result = 0;
-                return true;
-            } else if (msg->wParam == volumeUpHotkeyId_) {
-                Logger::log("Volume up hotkey ID matches! Triggering onVolumeUpTriggered()");
-                onVolumeUpTriggered();
-                *result = 0;
-                return true;
-            } else if (msg->wParam == volumeDownHotkeyId_) {
-                Logger::log("Volume down hotkey ID matches! Triggering onVolumeDownTriggered()");
-                onVolumeDownTriggered();
-                *result = 0;
-                return true;
-            } else if (msg->wParam == adminRestartHotkeyId_) {
-                Logger::log("Admin restart hotkey ID matches! Triggering onAdminRestartTriggered()");
-                onAdminRestartTriggered();
-                *result = 0;
-                return true;
-            } else {
-                Logger::log(QString("Hotkey ID mismatch: expected %1, %2, %3, or %4, got %5")
-                                .arg(hotkeyId_)
-                                .arg(volumeUpHotkeyId_)
-                                .arg(volumeDownHotkeyId_)
-                                .arg(adminRestartHotkeyId_)
-                                .arg(msg->wParam));
-            }
-        }
-        
-        // Log other interesting messages
-        if (msg->message == WM_KEYDOWN || msg->message == WM_KEYUP) {
-            Logger::log(QString("Key event: message=0x%1, wParam=0x%2, lParam=0x%3").arg(msg->message, 0, 16).arg(msg->wParam, 0, 16).arg(msg->lParam, 0, 16));
-        }
+bool MainWindow::parseAndNormalizeHotkey(const QString& input, const QString& settingName, bool allowEmpty, QString* normalizedHotkey) {
+    if (allowEmpty && input.trimmed().isEmpty()) {
+        normalizedHotkey->clear();
+        return true;
     }
-    return QMainWindow::nativeEvent(eventType, message, result);
+
+    QString errorMessage;
+    const KeyboardHook::HotkeyData parsedHotkey = KeyboardHook::parseHotkey(input, &errorMessage);
+    if (!parsedHotkey.isValid) {
+        QMessageBox::warning(this,
+                             "Invalid Hotkey",
+                             QString("Invalid %1 format: %2\n\n%3")
+                                 .arg(settingName)
+                                 .arg(input)
+                                 .arg(errorMessage.isEmpty() ? "Use formats like Ctrl+F1, Alt+M, LAlt+M, or Win+F16." : errorMessage));
+        return false;
+    }
+
+    *normalizedHotkey = parsedHotkey.normalizedText;
+    return true;
+}
+
+bool MainWindow::ensureKeyboardHookInstalled() {
+    if (KeyboardHook::instance().installHook()) {
+        return true;
+    }
+
+    QMessageBox::warning(this,
+                         "Hotkeys Inactive",
+                         "Failed to install the keyboard hook. Hotkey settings were saved, but hotkeys are currently inactive.");
+    return false;
 }
 
 QString MainWindow::getMainProcessName(DWORD pid) {
@@ -1499,18 +1259,6 @@ void MainWindow::onDarkModeChanged() {
     Logger::log(QString("Dark mode changed to: %1").arg(darkMode ? "enabled" : "disabled"));
 }
 
-void MainWindow::onUseHookChanged() {
-    bool useHook = ui->useHookCheck->isChecked();
-    settingsManager_.setUseHook(useHook);
-    
-    // Re-register hotkey with new setting
-    Logger::log(QString("Use hook setting changed to: %1 - re-registering hotkey").arg(useHook ? "enabled" : "disabled"));
-    unregisterHotkey();
-    registerHotkey();
-    
-    Logger::log(QString("Use hook changed to: %1").arg(useHook ? "enabled" : "disabled"));
-}
-
 void MainWindow::checkForUpdates() {
     Logger::log("=== Check for Updates Button Pressed ===");
     // Use the UpdateManager to handle the update check
@@ -1526,7 +1274,9 @@ void MainWindow::showHotkeyInfo() {
         "<h4>Modifier Keys:</h4>"
         "<ul>"
         "<li><b>Ctrl</b> - Control key</li>"
-        "<li><b>Alt</b> - Alt key</li>"
+        "<li><b>Alt</b> - Either Alt key</li>"
+        "<li><b>LAlt</b> or <b>LeftAlt</b> - Left Alt only</li>"
+        "<li><b>RAlt</b> or <b>RightAlt</b> - Right Alt only</li>"
         "<li><b>Shift</b> - Shift key</li>"
         "<li><b>Win</b> or <b>Meta</b> - Windows key (both formats work)</li>"
         "</ul>"
@@ -1544,6 +1294,7 @@ void MainWindow::showHotkeyInfo() {
         "<ul>"
         "<li><b>Single key:</b> F1, F16, A, Space</li>"
         "<li><b>One modifier:</b> Ctrl+F1, Alt+M, Shift+A, Win+F1</li>"
+        "<li><b>Side-specific Alt:</b> LAlt+M, RAlt+M</li>"
         "<li><b>Two modifiers:</b> Ctrl+Alt+F1, Shift+Win+A, Ctrl+Win+F2</li>"
         "<li><b>Three modifiers:</b> Ctrl+Alt+Shift+F1, Ctrl+Win+Alt+F2</li>"
         "<li><b>All modifiers:</b> Ctrl+Alt+Shift+Win+F1</li>"
@@ -1551,7 +1302,7 @@ void MainWindow::showHotkeyInfo() {
         
         "<h4>Tips:</h4>"
         "<ul>"
-        "<li>Use <b>hook detection</b> if hotkeys don't work in games</li>"
+        "<li>Hotkeys always use a low-level keyboard hook</li>"
         "<li>Admin restart hotkey will relaunch the app with UAC prompt</li>"
         "<li>Function keys (F13-F24) are rarely used and work well</li>"
         "<li>Avoid common system shortcuts (Ctrl+C, Alt+Tab, etc.)</li>"
@@ -1590,44 +1341,25 @@ void MainWindow::applyVolumeControlSettings() {
     settingsManager_.setVolumeOSDCustomX(customX);
     settingsManager_.setVolumeOSDCustomY(customY);
     
-    // Process volume up hotkey
-    QString volumeUpKeyText = ui->volumeUpHotkeyEdit->text().trimmed();
-    QString processedVolumeUpKeyText = volumeUpKeyText;
-    processedVolumeUpKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
-    processedVolumeUpKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
-    if (processedVolumeUpKeyText == "Win") {
-        processedVolumeUpKeyText = "Meta";
-    }
-    
-    QKeySequence volumeUpSeq = QKeySequence::fromString(processedVolumeUpKeyText);
-    if (!volumeUpKeyText.isEmpty() && volumeUpSeq.isEmpty()) {
-        QMessageBox::warning(this, "Invalid Hotkey", QString("Invalid volume up hotkey format: %1\n\nPlease use format like: Ctrl+Up, Alt+Volume Up").arg(volumeUpKeyText));
+    const QString volumeUpKeyText = ui->volumeUpHotkeyEdit->text().trimmed();
+    if (!parseAndNormalizeHotkey(volumeUpKeyText, "volume up hotkey", true, &volumeUpHotkey_)) {
         return;
     }
-    volumeUpSeq_ = volumeUpSeq;
-    settingsManager_.setVolumeUpHotkey(volumeUpSeq.toString());
-    
-    // Process volume down hotkey
-    QString volumeDownKeyText = ui->volumeDownHotkeyEdit->text().trimmed();
-    QString processedVolumeDownKeyText = volumeDownKeyText;
-    processedVolumeDownKeyText.replace("Win+", "Meta+", Qt::CaseInsensitive);
-    processedVolumeDownKeyText.replace("+Win", "+Meta", Qt::CaseInsensitive);
-    if (processedVolumeDownKeyText == "Win") {
-        processedVolumeDownKeyText = "Meta";
-    }
-    
-    QKeySequence volumeDownSeq = QKeySequence::fromString(processedVolumeDownKeyText);
-    if (!volumeDownKeyText.isEmpty() && volumeDownSeq.isEmpty()) {
-        QMessageBox::warning(this, "Invalid Hotkey", QString("Invalid volume down hotkey format: %1\n\nPlease use format like: Ctrl+Down, Alt+Volume Down").arg(volumeDownKeyText));
+
+    const QString volumeDownKeyText = ui->volumeDownHotkeyEdit->text().trimmed();
+    if (!parseAndNormalizeHotkey(volumeDownKeyText, "volume down hotkey", true, &volumeDownHotkey_)) {
         return;
     }
-    volumeDownSeq_ = volumeDownSeq;
-    settingsManager_.setVolumeDownHotkey(volumeDownSeq.toString());
+
+    ui->volumeUpHotkeyEdit->setText(volumeUpHotkey_);
+    ui->volumeDownHotkeyEdit->setText(volumeDownHotkey_);
+    settingsManager_.setVolumeUpHotkey(volumeUpHotkey_);
+    settingsManager_.setVolumeDownHotkey(volumeDownHotkey_);
     
     settingsManager_.save();
     
     // Register volume hotkeys if enabled
-    if (enabled && (!volumeUpSeq.isEmpty() || !volumeDownSeq.isEmpty())) {
+    if (enabled && (!volumeUpHotkey_.isEmpty() || !volumeDownHotkey_.isEmpty())) {
         registerVolumeHotkeys();
     }
     
@@ -1638,14 +1370,14 @@ void MainWindow::applyVolumeControlSettings() {
                 "Volume Down Hotkey: %3\n"
                 "Volume Step: %4%")
         .arg(enabled ? "Yes" : "No")
-        .arg(volumeUpSeq.isEmpty() ? "Not set" : volumeUpSeq.toString())
-        .arg(volumeDownSeq.isEmpty() ? "Not set" : volumeDownSeq.toString())
+        .arg(volumeUpHotkey_.isEmpty() ? "Not set" : volumeUpHotkey_)
+        .arg(volumeDownHotkey_.isEmpty() ? "Not set" : volumeDownHotkey_)
         .arg(stepPercent));
     
     Logger::log(QString("Volume control settings saved: enabled=%1, up=%2, down=%3, step=%4%")
                 .arg(enabled)
-                .arg(volumeUpSeq.toString())
-                .arg(volumeDownSeq.toString())
+                .arg(volumeUpHotkey_)
+                .arg(volumeDownHotkey_)
                 .arg(stepPercent));
 }
 
@@ -1871,45 +1603,25 @@ void MainWindow::onAdminRestartTriggered() {
 }
 
 void MainWindow::registerVolumeHotkeys() {
-    bool useHook = settingsManager_.getUseHook();
-    
-    if (useHook) {
-        Logger::log("Using hook-based volume hotkey detection");
-        if (!volumeUpSeq_.isEmpty()) {
-            KeyboardHook::instance().setVolumeUpHotkey(volumeUpSeq_);
+    Logger::log("Registering hook-based volume hotkeys");
+    KeyboardHook::instance().clearVolumeHotkeys();
+
+    if (!volumeUpHotkey_.isEmpty()) {
+        KeyboardHook::instance().setVolumeUpHotkey(volumeUpHotkey_);
+    }
+    if (!volumeDownHotkey_.isEmpty()) {
+        KeyboardHook::instance().setVolumeDownHotkey(volumeDownHotkey_);
+    }
+
+    if (!volumeUpHotkey_.isEmpty() || !volumeDownHotkey_.isEmpty()) {
+        if (ensureKeyboardHookInstalled()) {
+            Logger::log("Volume hotkeys registered successfully");
         }
-        if (!volumeDownSeq_.isEmpty()) {
-            KeyboardHook::instance().setVolumeDownHotkey(volumeDownSeq_);
-        }
-        if (!KeyboardHook::instance().isHookInstalled()) {
-            if (KeyboardHook::instance().installHook()) {
-                Logger::log("Volume hotkeys hook registered successfully");
-            } else {
-                Logger::log("Failed to install keyboard hook for volume hotkeys, falling back to RegisterHotKey");
-                registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
-                registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
-            }
-        } else {
-            Logger::log("Hook already installed for volume hotkeys");
-        }
-    } else {
-        Logger::log("Using normal RegisterHotKey volume hotkey detection");
-        registerVolumeHotkeyNormal(volumeUpSeq_, volumeUpHotkeyId_);
-        registerVolumeHotkeyNormal(volumeDownSeq_, volumeDownHotkeyId_);
     }
 }
 
 void MainWindow::unregisterVolumeHotkeys() {
-    // Clear hook-based hotkeys
     KeyboardHook::instance().clearVolumeHotkeys();
-    
-    // Unregister normal hotkeys
-    HWND hwnd = (HWND)winId();
-    if (hwnd) {
-        UnregisterHotKey(hwnd, volumeUpHotkeyId_);
-        UnregisterHotKey(hwnd, volumeDownHotkeyId_);
-    }
-    
     Logger::log("Volume hotkeys unregistered");
 }
 
@@ -1964,163 +1676,6 @@ void MainWindow::positionVolumeOSD() {
     }
     
     VolumeOSD::instance().setCustomPosition(x, y);
-}
-
-void MainWindow::registerVolumeHotkeyNormal(const QKeySequence& sequence, int hotkeyId) {
-    if (sequence.isEmpty()) {
-        return;
-    }
-    
-    HWND hwnd = (HWND)winId();
-    if (!hwnd) {
-        Logger::log("Cannot register volume hotkey: invalid window handle");
-        return;
-    }
-    
-    QKeyCombination key = sequence[0];
-    if (key.toCombined() == 0) {
-        Logger::log("Cannot register volume hotkey: invalid key code");
-        return;
-    }
-    
-    // Extract modifiers
-    int mods = 0;
-    int keyValue = key.toCombined();
-    if (keyValue & Qt::ShiftModifier) {
-        mods |= MOD_SHIFT;
-    }
-    if (keyValue & Qt::ControlModifier) {
-        mods |= MOD_CONTROL;
-    }
-    if (keyValue & Qt::AltModifier) {
-        mods |= MOD_ALT;
-    }
-    if (keyValue & Qt::MetaModifier) {
-        mods |= MOD_WIN;
-    }
-    
-    // Get the actual key code without modifiers
-    int vk = keyValue & ~Qt::KeyboardModifierMask;
-    
-    // Map Qt key to Windows virtual key code
-    int winVk = 0;
-    if (vk >= Qt::Key_A && vk <= Qt::Key_Z) {
-        winVk = 'A' + (vk - Qt::Key_A);
-    } else if (vk >= Qt::Key_0 && vk <= Qt::Key_9) {
-        winVk = '0' + (vk - Qt::Key_0);
-    } else if (vk >= Qt::Key_F1 && vk <= Qt::Key_F24) {
-        winVk = VK_F1 + (vk - Qt::Key_F1);
-    } else {
-        switch (vk) {
-            case Qt::Key_Space: winVk = VK_SPACE; break;
-            case Qt::Key_Tab: winVk = VK_TAB; break;
-            case Qt::Key_Return: winVk = VK_RETURN; break;
-            case Qt::Key_Escape: winVk = VK_ESCAPE; break;
-            case Qt::Key_Backspace: winVk = VK_BACK; break;
-            case Qt::Key_Delete: winVk = VK_DELETE; break;
-            case Qt::Key_Insert: winVk = VK_INSERT; break;
-            case Qt::Key_Home: winVk = VK_HOME; break;
-            case Qt::Key_End: winVk = VK_END; break;
-            case Qt::Key_PageUp: winVk = VK_PRIOR; break;
-            case Qt::Key_PageDown: winVk = VK_NEXT; break;
-            case Qt::Key_Left: winVk = VK_LEFT; break;
-            case Qt::Key_Right: winVk = VK_RIGHT; break;
-            case Qt::Key_Up: winVk = VK_UP; break;
-            case Qt::Key_Down: winVk = VK_DOWN; break;
-            default: 
-                winVk = vk;
-                break;
-        }
-    }
-    
-    if (winVk == 0) {
-        Logger::log(QString("Failed to map volume hotkey: 0x%1").arg(vk, 0, 16));
-        return;
-    }
-    
-    if (!RegisterHotKey(hwnd, hotkeyId, mods, winVk)) {
-        DWORD error = GetLastError();
-        Logger::log(QString("Failed to register volume hotkey. Error: %1 (0x%2)").arg(error).arg(error, 0, 16));
-    } else {
-        Logger::log(QString("Volume hotkey registered successfully: %1 (ID: 0x%2)").arg(sequence.toString()).arg(hotkeyId, 0, 16));
-    }
-}
-
-void MainWindow::registerAdminRestartHotkeyNormal(const QKeySequence& sequence, int hotkeyId) {
-    if (sequence.isEmpty()) {
-        return;
-    }
-    
-    HWND hwnd = (HWND)winId();
-    if (!hwnd) {
-        Logger::log("Cannot register admin restart hotkey: invalid window handle");
-        return;
-    }
-    
-    QKeyCombination key = sequence[0];
-    if (key.toCombined() == 0) {
-        Logger::log("Cannot register admin restart hotkey: invalid key code");
-        return;
-    }
-    
-    int mods = 0;
-    int keyValue = key.toCombined();
-    if (keyValue & Qt::ShiftModifier) {
-        mods |= MOD_SHIFT;
-    }
-    if (keyValue & Qt::ControlModifier) {
-        mods |= MOD_CONTROL;
-    }
-    if (keyValue & Qt::AltModifier) {
-        mods |= MOD_ALT;
-    }
-    if (keyValue & Qt::MetaModifier) {
-        mods |= MOD_WIN;
-    }
-    
-    int vk = keyValue & ~Qt::KeyboardModifierMask;
-    
-    int winVk = 0;
-    if (vk >= Qt::Key_A && vk <= Qt::Key_Z) {
-        winVk = 'A' + (vk - Qt::Key_A);
-    } else if (vk >= Qt::Key_0 && vk <= Qt::Key_9) {
-        winVk = '0' + (vk - Qt::Key_0);
-    } else if (vk >= Qt::Key_F1 && vk <= Qt::Key_F24) {
-        winVk = VK_F1 + (vk - Qt::Key_F1);
-    } else {
-        switch (vk) {
-            case Qt::Key_Space: winVk = VK_SPACE; break;
-            case Qt::Key_Tab: winVk = VK_TAB; break;
-            case Qt::Key_Return: winVk = VK_RETURN; break;
-            case Qt::Key_Escape: winVk = VK_ESCAPE; break;
-            case Qt::Key_Backspace: winVk = VK_BACK; break;
-            case Qt::Key_Delete: winVk = VK_DELETE; break;
-            case Qt::Key_Insert: winVk = VK_INSERT; break;
-            case Qt::Key_Home: winVk = VK_HOME; break;
-            case Qt::Key_End: winVk = VK_END; break;
-            case Qt::Key_PageUp: winVk = VK_PRIOR; break;
-            case Qt::Key_PageDown: winVk = VK_NEXT; break;
-            case Qt::Key_Left: winVk = VK_LEFT; break;
-            case Qt::Key_Right: winVk = VK_RIGHT; break;
-            case Qt::Key_Up: winVk = VK_UP; break;
-            case Qt::Key_Down: winVk = VK_DOWN; break;
-            default: 
-                winVk = vk;
-                break;
-        }
-    }
-    
-    if (winVk == 0) {
-        Logger::log(QString("Failed to map admin restart hotkey: 0x%1").arg(vk, 0, 16));
-        return;
-    }
-    
-    if (!RegisterHotKey(hwnd, hotkeyId, mods, winVk)) {
-        DWORD error = GetLastError();
-        Logger::log(QString("Failed to register admin restart hotkey. Error: %1 (0x%2)").arg(error).arg(error, 0, 16));
-    } else {
-        Logger::log(QString("Admin restart hotkey registered successfully: %1 (ID: 0x%2)").arg(sequence.toString()).arg(hotkeyId, 0, 16));
-    }
 }
 
 LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {

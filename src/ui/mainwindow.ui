@@ -37,7 +37,7 @@
           <item>
            <widget class="QLineEdit" name="hotkeyEdit">
             <property name="placeholderText">
-             <string>e.g., Ctrl+F1, Alt+M, Ctrl+Win+F2, Win+F16</string>
+             <string>e.g., Ctrl+F1, Alt+M, LAlt+M, Ctrl+Win+F2, Win+F16</string>
             </property>
            </widget>
           </item>
@@ -70,19 +70,6 @@
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="useHookCheck">
-          <property name="toolTip">
-           <string>Use low-level keyboard hook for hotkey detection. Enable this if hotkeys are not working in games or full-screen applications.</string>
-          </property>
-          <property name="text">
-           <string>Use hook for hotkey detection (fixes games)</string>
-          </property>
-          <property name="checked">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
          <widget class="QCheckBox" name="adminRestartHotkeyEnabledCheck">
           <property name="toolTip">
            <string>Enable a hotkey that restarts this app with administrator privileges.</string>
@@ -107,7 +94,7 @@
           <item>
            <widget class="QLineEdit" name="adminRestartHotkeyEdit">
             <property name="placeholderText">
-             <string>e.g., Ctrl+Alt+F12, Win+F16</string>
+             <string>e.g., Ctrl+Alt+F12, LAlt+F12, Win+F16</string>
             </property>
            </widget>
           </item>
@@ -185,7 +172,7 @@
           <item>
            <widget class="QLineEdit" name="volumeUpHotkeyEdit">
             <property name="placeholderText">
-             <string>e.g., Ctrl+Up, Alt+Volume Up, Ctrl+Win+Up</string>
+             <string>e.g., Ctrl+Up, Alt+Up, LAlt+Up, Ctrl+Win+Up</string>
             </property>
            </widget>
           </item>
@@ -203,7 +190,7 @@
           <item>
            <widget class="QLineEdit" name="volumeDownHotkeyEdit">
             <property name="placeholderText">
-             <string>e.g., Ctrl+Down, Alt+Volume Down, Ctrl+Win+Down</string>
+             <string>e.g., Ctrl+Down, Alt+Down, RAlt+Down, Ctrl+Win+Down</string>
             </property>
            </widget>
           </item>

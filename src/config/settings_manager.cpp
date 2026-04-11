@@ -89,12 +89,6 @@ void SettingsManager::migrateSettings() {
         Logger::log("Added missing setting 'autoUpdateCheck' with default value: true");
     }
     
-    if (!config_.contains("useHook")) {
-        config_.setUseHook(false); // Default to normal hotkey registration
-        needsSave = true;
-        Logger::log("Added missing setting 'useHook' with default value: false");
-    }
-
     if (!config_.contains("adminRestartHotkeyEnabled")) {
         config_.setAdminRestartHotkeyEnabled(false); // Default to disabled
         needsSave = true;
@@ -195,10 +189,6 @@ bool SettingsManager::getAutoUpdateCheck() const {
     return config_.getAutoUpdateCheck();
 }
 
-bool SettingsManager::getUseHook() const {
-    return config_.getUseHook();
-}
-
 bool SettingsManager::getAdminRestartHotkeyEnabled() const {
     return config_.getAdminRestartHotkeyEnabled();
 }
@@ -285,11 +275,6 @@ void SettingsManager::setShowNotifications(bool enabled) {
 
 void SettingsManager::setAutoUpdateCheck(bool enabled) {
     config_.setAutoUpdateCheck(enabled);
-    emit settingsChanged();
-}
-
-void SettingsManager::setUseHook(bool enabled) {
-    config_.setUseHook(enabled);
     emit settingsChanged();
 }
 

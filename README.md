@@ -26,7 +26,7 @@ Download the latest release from the [Releases](https://github.com/tfourj/MuteAc
 ## Quick Start
 
 1. **Download and run** the application
-2. **Set your hotkey** in the "Hotkey Settings" tab (e.g., Ctrl+F1, Alt+M)
+2. **Set your hotkey** in the "Hotkey Settings" tab (e.g., Ctrl+F1, Alt+M, LAlt+M)
 3. **Configure settings** in the "Settings" tab:
    - Enable/disable dark mode
    - Set startup behavior
@@ -48,7 +48,8 @@ Download the latest release from the [Releases](https://github.com/tfourj/MuteAc
 ## Settings
 
 #### Hotkey Settings
-- **Hotkey**: Set your preferred hotkey combination
+- **Hotkey**: Set your preferred hook-based hotkey combination
+- **Side-specific Alt**: Use `LAlt`/`LeftAlt` or `RAlt`/`RightAlt` for left/right Alt only
 - **PID-based muting**: Enable for precise window targeting
 
 #### Device Management
@@ -100,4 +101,4 @@ This project is licensed under the **GNU General Public License v3.0** - see the
 ## Acknowledgments
 
 - Built with Qt framework
-- Uses Windows Core Audio APIs 
+- Uses Windows Core Audio APIs

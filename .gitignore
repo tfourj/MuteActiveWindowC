@@ -83,3 +83,4 @@ CMakeLists.txt.user*
 /installer/repository
 /installer/packages
 /installer/temp_installer
+.codex

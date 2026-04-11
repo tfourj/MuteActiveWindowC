@@ -1,6 +1,5 @@
 #pragma once
 #include <QMainWindow>
-#include <QKeySequence>
 #include <QListWidget>
 #include <QInputDialog>
 #include <QMessageBox>
@@ -39,7 +38,6 @@ public:
     ~MainWindow();
 
 protected:
-    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
     void closeEvent(QCloseEvent *event) override;
 
 private slots:
@@ -61,7 +59,6 @@ private slots:
     void clearProcesses();
     void saveProcesses();
     void onDarkModeChanged();
-    void onUseHookChanged();
     void checkForUpdates();
     void showHotkeyInfo();
     void applyVolumeControlSettings();
@@ -74,13 +71,12 @@ private slots:
 
 private:
     void registerHotkey();
-    void registerHotkeyNormal();
-    void registerAdminRestartHotkeyNormal(const QKeySequence& sequence, int hotkeyId);
     void unregisterHotkey();
     void onHotkeyTriggered();
     void registerVolumeHotkeys();
     void unregisterVolumeHotkeys();
-    void registerVolumeHotkeyNormal(const QKeySequence& sequence, int hotkeyId);
+    bool parseAndNormalizeHotkey(const QString& input, const QString& settingName, bool allowEmpty, QString* normalizedHotkey);
+    bool ensureKeyboardHookInstalled();
     void positionVolumeOSD();
     void populateDeviceList();
     QString getMainProcessName(DWORD pid);
@@ -93,14 +89,10 @@ private:
 
     Ui::MainWindow *ui;
     AudioMuter muter_;
-    int hotkeyId_;
-    QKeySequence currentSeq_;
-    int volumeUpHotkeyId_;
-    int volumeDownHotkeyId_;
-    int adminRestartHotkeyId_;
-    QKeySequence volumeUpSeq_;
-    QKeySequence volumeDownSeq_;
-    QKeySequence adminRestartSeq_;
+    QString currentHotkey_;
+    QString volumeUpHotkey_;
+    QString volumeDownHotkey_;
+    QString adminRestartHotkey_;
     SettingsManager& settingsManager_;
     QSystemTrayIcon* trayIcon_;
     QMenu* trayMenu_;

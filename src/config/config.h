@@ -49,10 +49,6 @@ public:
     bool getAutoUpdateCheck() const;
     void setAutoUpdateCheck(bool enabled);
     
-    // Hook-based hotkey settings
-    bool getUseHook() const;
-    void setUseHook(bool enabled);
-
     // Admin restart hotkey settings
     bool getAdminRestartHotkeyEnabled() const;
     void setAdminRestartHotkeyEnabled(bool enabled);
