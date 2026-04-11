@@ -463,8 +463,9 @@ bool KeyboardHook::isHotkeyMatch(DWORD vkCode, const HotkeyData& data) const {
         return false;
     }
 
-    const bool ctrlPressed = leftCtrlPressed_ || rightCtrlPressed_;
     const bool altPressed = leftAltPressed_ || rightAltPressed_;
+    const bool altGrActive = rightAltPressed_ && leftCtrlPressed_ && !rightCtrlPressed_;
+    const bool ctrlPressed = rightCtrlPressed_ || (leftCtrlPressed_ && !altGrActive);
     const bool shiftPressed = leftShiftPressed_ || rightShiftPressed_;
     const bool winPressed = leftWinPressed_ || rightWinPressed_;
 
