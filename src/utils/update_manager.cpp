@@ -17,6 +17,12 @@
 #include <QProgressDialog>
 #include <QApplication>
 #include <QThread>
+#include <QTimer>
+
+namespace {
+constexpr int kVersionCheckRetryIntervalMs = 15 * 1000;
+constexpr int kVersionCheckRetryWindowMs = 5 * 60 * 1000;
+}
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -86,6 +92,8 @@ bool UpdateManager::isNewerVersion(const QString& remoteVersion, const QString& 
 void UpdateManager::checkForUpdates(bool triggeredByUser) {
     Logger::log("=== Check for Updates Requested ===");
     userInitiated_ = triggeredByUser;
+    versionCheckRetryDeadline_ = QDateTime::currentDateTimeUtc().addMSecs(kVersionCheckRetryWindowMs);
+    ++versionCheckGeneration_;
     // First, try to check online version
     checkOnlineVersion();
 }
@@ -128,7 +136,36 @@ void UpdateManager::checkOnlineVersion() {
     Logger::log("GitHub API version check request sent");
 }
 
+void UpdateManager::scheduleVersionCheckRetry(const QString& reason) {
+    if (!versionCheckRetryDeadline_.isValid() ||
+        QDateTime::currentDateTimeUtc() >= versionCheckRetryDeadline_) {
+        Logger::log("Version check retry window expired, showing update check error");
+        showUpdateCheckError(QString("%1 (retried for 5 minutes)").arg(reason));
+        return;
+    }
+
+    const int expectedGeneration = versionCheckGeneration_;
+    Logger::log(QString("Online version check failed, retrying in 15 seconds: %1").arg(reason));
+    QTimer::singleShot(kVersionCheckRetryIntervalMs, this, [this, expectedGeneration]() {
+        if (expectedGeneration != versionCheckGeneration_) {
+            Logger::log("Skipping outdated version check retry");
+            return;
+        }
+
+        checkOnlineVersion();
+    });
+}
+
 void UpdateManager::onVersionCheckFinished() {
+    QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply || reply != currentReply_) {
+        if (reply) {
+            reply->deleteLater();
+        }
+        Logger::log("Ignoring stale version check reply");
+        return;
+    }
+
     if (!currentReply_) {
         Logger::log("No current reply in onVersionCheckFinished");
         showUpdateCheckError("No network reply");
@@ -140,7 +177,7 @@ void UpdateManager::onVersionCheckFinished() {
         Logger::log(QString("Online version check failed: %1").arg(errorStr));
         currentReply_->deleteLater();
         currentReply_ = nullptr;
-        showUpdateCheckError(errorStr);
+        scheduleVersionCheckRetry(errorStr);
         return;
     }
     

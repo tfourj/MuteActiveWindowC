@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QFile>
 #include <QStandardPaths>
+#include <QDateTime>
 
 class QProgressDialog;
 
@@ -53,6 +54,7 @@ private:
     
     void updateAvailability();
     void checkOnlineVersion();
+    void scheduleVersionCheckRetry(const QString& reason);
     void parseGitHubApiResponse(const QByteArray& jsonData);
     void downloadInstaller(const QString& downloadUrl);
     void runInstaller();
@@ -66,4 +68,6 @@ private:
     bool launchInstallerWithElevation(const QString& installerPath);
     void showElevationPrompt();
     bool userInitiated_ = false;
+    QDateTime versionCheckRetryDeadline_;
+    int versionCheckGeneration_ = 0;
 }; 
