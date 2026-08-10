@@ -68,6 +68,8 @@ private:
     bool launchInstallerWithElevation(const QString& installerPath);
     void showElevationPrompt();
     bool userInitiated_ = false;
+    bool versionCheckTimeoutEnabled_ = true;
+    int versionCheckTimeoutMinutes_ = 5;
     QDateTime versionCheckRetryDeadline_;
     int versionCheckGeneration_ = 0;
 }; 

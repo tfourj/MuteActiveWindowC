@@ -1,5 +1,6 @@
 #include "update_manager.h"
 #include "logger.h"
+#include "settings_manager.h"
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -21,7 +22,6 @@
 
 namespace {
 constexpr int kVersionCheckRetryIntervalMs = 15 * 1000;
-constexpr int kVersionCheckRetryWindowMs = 5 * 60 * 1000;
 }
 
 #ifdef Q_OS_WIN
@@ -92,7 +92,15 @@ bool UpdateManager::isNewerVersion(const QString& remoteVersion, const QString& 
 void UpdateManager::checkForUpdates(bool triggeredByUser) {
     Logger::log("=== Check for Updates Requested ===");
     userInitiated_ = triggeredByUser;
-    versionCheckRetryDeadline_ = QDateTime::currentDateTimeUtc().addMSecs(kVersionCheckRetryWindowMs);
+    SettingsManager& settings = SettingsManager::instance();
+    versionCheckTimeoutEnabled_ = settings.getUpdateCheckTimeoutEnabled();
+    versionCheckTimeoutMinutes_ = settings.getUpdateCheckTimeoutMinutes();
+    versionCheckRetryDeadline_ = versionCheckTimeoutEnabled_
+        ? QDateTime::currentDateTimeUtc().addSecs(versionCheckTimeoutMinutes_ * 60)
+        : QDateTime();
+    Logger::log(versionCheckTimeoutEnabled_
+        ? QString("Update check retry timeout: %1 minutes").arg(versionCheckTimeoutMinutes_)
+        : QString("Update check retry timeout disabled"));
     ++versionCheckGeneration_;
     // First, try to check online version
     checkOnlineVersion();
@@ -137,10 +145,10 @@ void UpdateManager::checkOnlineVersion() {
 }
 
 void UpdateManager::scheduleVersionCheckRetry(const QString& reason) {
-    if (!versionCheckRetryDeadline_.isValid() ||
+    if (versionCheckTimeoutEnabled_ &&
         QDateTime::currentDateTimeUtc() >= versionCheckRetryDeadline_) {
         Logger::log("Version check retry window expired, showing update check error");
-        showUpdateCheckError(QString("%1 (retried for 5 minutes)").arg(reason));
+        showUpdateCheckError(QString("%1 (retried for %2 minutes)").arg(reason).arg(versionCheckTimeoutMinutes_));
         return;
     }
 

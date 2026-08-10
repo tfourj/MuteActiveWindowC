@@ -27,6 +27,8 @@ public:
     QStringList getExcludedDevices() const;
     QStringList getExcludedProcesses() const;
     bool getAutoUpdateCheck() const;
+    bool getUpdateCheckTimeoutEnabled() const;
+    int getUpdateCheckTimeoutMinutes() const;
     bool getAdminRestartHotkeyEnabled() const;
     QString getAdminRestartHotkey() const;
     bool getVolumeControlEnabled() const;
@@ -47,6 +49,8 @@ public:
     void setDarkMode(bool enabled);
     void setShowNotifications(bool enabled);
     void setAutoUpdateCheck(bool enabled);
+    void setUpdateCheckTimeoutEnabled(bool enabled);
+    void setUpdateCheckTimeoutMinutes(int minutes);
     void setAdminRestartHotkeyEnabled(bool enabled);
     void setAdminRestartHotkey(const QString& hotkey);
     void setVolumeControlEnabled(bool enabled);

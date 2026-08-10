@@ -1,5 +1,6 @@
 #include "config.h"
 #include "logger.h"
+#include <QtGlobal>
 
 Config::Config() : settings_("TfourJ", "MuteActiveWindow") {
 }
@@ -149,6 +150,25 @@ void Config::setAutoUpdateCheck(bool enabled) {
     Logger::log(QString("Auto-update check setting saved: %1").arg(enabled ? "enabled" : "disabled"));
 }
 
+bool Config::getUpdateCheckTimeoutEnabled() const {
+    return settings_.value("updateCheckTimeoutEnabled", true).toBool();
+}
+
+void Config::setUpdateCheckTimeoutEnabled(bool enabled) {
+    settings_.setValue("updateCheckTimeoutEnabled", enabled);
+    Logger::log(QString("Update check timeout setting saved: %1").arg(enabled ? "enabled" : "disabled"));
+}
+
+int Config::getUpdateCheckTimeoutMinutes() const {
+    return qBound(1, settings_.value("updateCheckTimeoutMinutes", 5).toInt(), 1440);
+}
+
+void Config::setUpdateCheckTimeoutMinutes(int minutes) {
+    const int boundedMinutes = qBound(1, minutes, 1440);
+    settings_.setValue("updateCheckTimeoutMinutes", boundedMinutes);
+    Logger::log(QString("Update check timeout saved: %1 minutes").arg(boundedMinutes));
+}
+
 bool Config::getAdminRestartHotkeyEnabled() const {
     return settings_.value("adminRestartHotkeyEnabled", false).toBool();
 }
@@ -253,6 +273,8 @@ void Config::save() {
     Logger::log(QString("  Dark mode: %1").arg(getDarkMode() ? "enabled" : "disabled"));
     Logger::log(QString("  Show notifications: %1").arg(getShowNotifications() ? "enabled" : "disabled"));
     Logger::log(QString("  Auto-update check: %1").arg(getAutoUpdateCheck() ? "enabled" : "disabled"));
+    Logger::log(QString("  Update check timeout: %1").arg(getUpdateCheckTimeoutEnabled() ? "enabled" : "disabled"));
+    Logger::log(QString("  Update check timeout minutes: %1").arg(getUpdateCheckTimeoutMinutes()));
     Logger::log(QString("  Admin restart hotkey enabled: %1").arg(getAdminRestartHotkeyEnabled() ? "enabled" : "disabled"));
     Logger::log(QString("  Admin restart hotkey: %1").arg(getAdminRestartHotkey()));
     Logger::log(QString("  Volume control enabled: %1").arg(getVolumeControlEnabled() ? "enabled" : "disabled"));

@@ -64,6 +64,7 @@ Download the latest release from the [Releases](https://github.com/tfourj/MuteAc
 - **Startup behavior**: Auto-start with Windows, start minimized
 - **Tray behavior**: Close to system tray
 - **Dark mode**: Toggle between light and dark themes
+- **Update checks**: Check on startup and configure how long failed checks are retried (five minutes by default)
 - **Files & folders**: Access application folder and registry settings
 
 ## Compilation

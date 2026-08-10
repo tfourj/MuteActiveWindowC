@@ -48,6 +48,10 @@ public:
     // Auto-update settings
     bool getAutoUpdateCheck() const;
     void setAutoUpdateCheck(bool enabled);
+    bool getUpdateCheckTimeoutEnabled() const;
+    void setUpdateCheckTimeoutEnabled(bool enabled);
+    int getUpdateCheckTimeoutMinutes() const;
+    void setUpdateCheckTimeoutMinutes(int minutes);
     
     // Admin restart hotkey settings
     bool getAdminRestartHotkeyEnabled() const;

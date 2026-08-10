@@ -88,6 +88,18 @@ void SettingsManager::migrateSettings() {
         needsSave = true;
         Logger::log("Added missing setting 'autoUpdateCheck' with default value: true");
     }
+
+    if (!config_.contains("updateCheckTimeoutEnabled")) {
+        config_.setUpdateCheckTimeoutEnabled(true);
+        needsSave = true;
+        Logger::log("Added missing setting 'updateCheckTimeoutEnabled' with default value: true");
+    }
+
+    if (!config_.contains("updateCheckTimeoutMinutes")) {
+        config_.setUpdateCheckTimeoutMinutes(5);
+        needsSave = true;
+        Logger::log("Added missing setting 'updateCheckTimeoutMinutes' with default value: 5");
+    }
     
     if (!config_.contains("adminRestartHotkeyEnabled")) {
         config_.setAdminRestartHotkeyEnabled(false); // Default to disabled
@@ -189,6 +201,14 @@ bool SettingsManager::getAutoUpdateCheck() const {
     return config_.getAutoUpdateCheck();
 }
 
+bool SettingsManager::getUpdateCheckTimeoutEnabled() const {
+    return config_.getUpdateCheckTimeoutEnabled();
+}
+
+int SettingsManager::getUpdateCheckTimeoutMinutes() const {
+    return config_.getUpdateCheckTimeoutMinutes();
+}
+
 bool SettingsManager::getAdminRestartHotkeyEnabled() const {
     return config_.getAdminRestartHotkeyEnabled();
 }
@@ -275,6 +295,16 @@ void SettingsManager::setShowNotifications(bool enabled) {
 
 void SettingsManager::setAutoUpdateCheck(bool enabled) {
     config_.setAutoUpdateCheck(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setUpdateCheckTimeoutEnabled(bool enabled) {
+    config_.setUpdateCheckTimeoutEnabled(enabled);
+    emit settingsChanged();
+}
+
+void SettingsManager::setUpdateCheckTimeoutMinutes(int minutes) {
+    config_.setUpdateCheckTimeoutMinutes(minutes);
     emit settingsChanged();
 }
 

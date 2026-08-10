@@ -138,6 +138,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->closeToTrayCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->showNotificationsCheck, &QCheckBox::toggled, this, &MainWindow::saveSettings);
     connect(ui->autoUpdateCheckBox, &QCheckBox::toggled, this, &MainWindow::saveSettings);
+    connect(ui->updateCheckTimeoutCheckBox, &QCheckBox::toggled, this, [this](bool enabled) {
+        ui->updateCheckTimeoutSpinBox->setEnabled(enabled);
+        saveSettings();
+    });
+    connect(ui->updateCheckTimeoutSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::saveSettings);
     connect(ui->darkModeCheck, &QCheckBox::toggled, this, &MainWindow::onDarkModeChanged);
     connect(ui->adminRestartHotkeyEnabledCheck, &QCheckBox::toggled, this, [this](bool enabled) {
         ui->adminRestartHotkeyEdit->setEnabled(enabled);
@@ -273,6 +278,14 @@ void MainWindow::loadSettings() {
     bool autoUpdateCheck = settingsManager_.getAutoUpdateCheck();
     ui->autoUpdateCheckBox->setChecked(autoUpdateCheck);
     Logger::log(QString("Loaded auto-update check setting: %1").arg(autoUpdateCheck ? "enabled" : "disabled"));
+
+    bool updateCheckTimeoutEnabled = settingsManager_.getUpdateCheckTimeoutEnabled();
+    ui->updateCheckTimeoutCheckBox->setChecked(updateCheckTimeoutEnabled);
+    ui->updateCheckTimeoutSpinBox->setEnabled(updateCheckTimeoutEnabled);
+    ui->updateCheckTimeoutSpinBox->setValue(settingsManager_.getUpdateCheckTimeoutMinutes());
+    Logger::log(QString("Loaded update check timeout: %1, %2 minutes")
+                .arg(updateCheckTimeoutEnabled ? "enabled" : "disabled")
+                .arg(settingsManager_.getUpdateCheckTimeoutMinutes()));
     
     bool adminRestartEnabled = settingsManager_.getAdminRestartHotkeyEnabled();
     ui->adminRestartHotkeyEnabledCheck->setChecked(adminRestartEnabled);
@@ -371,6 +384,8 @@ void MainWindow::saveSettings() {
     
     // Save auto-update check setting
     settingsManager_.setAutoUpdateCheck(ui->autoUpdateCheckBox->isChecked());
+    settingsManager_.setUpdateCheckTimeoutEnabled(ui->updateCheckTimeoutCheckBox->isChecked());
+    settingsManager_.setUpdateCheckTimeoutMinutes(ui->updateCheckTimeoutSpinBox->value());
     
     // Save admin restart hotkey enabled setting
     settingsManager_.setAdminRestartHotkeyEnabled(ui->adminRestartHotkeyEnabledCheck->isChecked());
