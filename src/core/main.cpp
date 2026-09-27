@@ -11,7 +11,10 @@
 #include <QThread>
 
 int main(int argc, char *argv[])
-{   
+{
+    // The app supplies its own palettes. Avoid Qt's native palette refresh path,
+    // which can access invalid WinRT theme state after Windows resumes from sleep.
+    QApplication::setDesktopSettingsAware(false);
     QApplication a(argc, argv);
 
     QSharedMemory sharedMemory("MuteActiveWindowC_SingleInstanceGuard");
