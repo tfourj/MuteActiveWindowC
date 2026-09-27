@@ -6,8 +6,9 @@
 #include <QString>
 #include <QFileInfo>
 
-AudioMuter::AudioMuter() : enumerator_(nullptr) {
-    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+AudioMuter::AudioMuter() : enumerator_(nullptr), comInitialized_(false) {
+    const HRESULT initResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    comInitialized_ = SUCCEEDED(initResult);
     CoCreateInstance(__uuidof(MMDeviceEnumerator),
                      nullptr,
                      CLSCTX_ALL,
@@ -16,7 +17,7 @@ AudioMuter::AudioMuter() : enumerator_(nullptr) {
 
 AudioMuter::~AudioMuter() {
     if (enumerator_) enumerator_->Release();
-    CoUninitialize();
+    if (comInitialized_) CoUninitialize();
 }
 
 int AudioMuter::toggleOnDevice(IMMDevice *device, const QString& targetExeName) {

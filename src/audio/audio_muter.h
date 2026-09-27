@@ -66,4 +66,5 @@ private:
     float adjustVolumeOnSession(ISimpleAudioVolume *vol, float stepPercent);
 
     IMMDeviceEnumerator *enumerator_;
+    bool comInitialized_;
 };
